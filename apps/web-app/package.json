@@ -10,7 +10,6 @@
     "lint": "tsc --noEmit"
   },
   "dependencies": {
-    "@wasl/shared-types": "*",
     "clsx": "^2.1.1",
     "lucide-react": "^0.475.0",
     "next": "^15.1.7",
