@@ -1,0 +1,118 @@
+export enum UserRole {
+  CANDIDATE = 'CANDIDATE',
+  GUARDIAN = 'GUARDIAN',
+  MODERATOR = 'MODERATOR',
+  CONCIERGE = 'CONCIERGE',
+  ADMIN = 'ADMIN'
+}
+
+export enum GenderType {
+  MALE = 'MALE',
+  FEMALE = 'FEMALE'
+}
+
+export enum MaritalStatusType {
+  NEVER_MARRIED = 'NEVER_MARRIED',
+  DIVORCED = 'DIVORCED',
+  WIDOWED = 'WIDOWED',
+  ANNULLED = 'ANNULLED'
+}
+
+export enum ReligiousPracticeLevel {
+  VERY_PRACTICING = 'VERY_PRACTICING',
+  PRACTICING = 'PRACTICING',
+  MODERATE = 'MODERATE',
+  LIBERAL = 'LIBERAL'
+}
+
+export enum SectType {
+  SUNNI_HANAFI = 'SUNNI_HANAFI',
+  SUNNI_OTHER = 'SUNNI_OTHER',
+  SHIA = 'SHIA',
+  DEOBANDI = 'DEOBANDI',
+  BARELVI = 'BARELVI',
+  AHLE_HADITH = 'AHLE_HADITH',
+  OTHER = 'OTHER',
+  PREFER_NOT_TO_SAY = 'PREFER_NOT_TO_SAY'
+}
+
+export enum FamilyStructureType {
+  NUCLEAR = 'NUCLEAR',
+  JOINT = 'JOINT',
+  FLEXIBLE = 'FLEXIBLE'
+}
+
+export enum RelocationFlexibilityType {
+  SAME_CITY_ONLY = 'SAME_CITY_ONLY',
+  ANYWHERE_IN_PAKISTAN = 'ANYWHERE_IN_PAKISTAN',
+  ABROAD_ONLY = 'ABROAD_ONLY',
+  GLOBAL_FLEXIBLE = 'GLOBAL_FLEXIBLE'
+}
+
+export enum FinancialBracketType {
+  TIER_1 = 'TIER_1', // < 100k PKR
+  TIER_2 = 'TIER_2', // 100k - 250k PKR
+  TIER_3 = 'TIER_3', // 250k - 500k PKR
+  TIER_4 = 'TIER_4', // 500k - 1M PKR
+  TIER_5 = 'TIER_5'  // 1M+ PKR
+}
+
+export enum BadgeType {
+  PHONE = 'PHONE',
+  EMAIL = 'EMAIL',
+  CNIC_IDENTITY = 'CNIC_IDENTITY',
+  EDUCATION = 'EDUCATION',
+  EMPLOYMENT = 'EMPLOYMENT',
+  WALI_VERIFIED = 'WALI_VERIFIED'
+}
+
+export enum BadgeStatusType {
+  PENDING = 'PENDING',
+  VERIFIED = 'VERIFIED',
+  REJECTED = 'REJECTED',
+  EXPIRED = 'EXPIRED'
+}
+
+export enum GuardianRelationType {
+  FATHER = 'FATHER',
+  MOTHER = 'MOTHER',
+  BROTHER = 'BROTHER',
+  SISTER = 'SISTER',
+  UNCLE = 'UNCLE',
+  AUNT = 'AUNT',
+  OTHER_WALI = 'OTHER_WALI'
+}
+
+export enum GuardianPermissionKey {
+  VIEW_PROFILE = 'view_profile',
+  VIEW_FAMILY_INFO = 'view_family_info',
+  SUGGEST_MATCHES = 'suggest_matches',
+  REVIEW_PROPOSALS = 'review_proposals',
+  CHAPERONE_CHAT = 'chaperone_chat'
+}
+
+export enum ProposalStatus {
+  DISCOVERED = 'DISCOVERED',
+  INTERESTED = 'INTERESTED',
+  FAMILY_INTERESTED = 'FAMILY_INTERESTED',
+  INTRODUCTION_REQUESTED = 'INTRODUCTION_REQUESTED',
+  SUPERVISED_CHAT = 'SUPERVISED_CHAT',
+  VOICE_VIDEO = 'VOICE_VIDEO',
+  FAMILY_MEETING = 'FAMILY_MEETING',
+  ENGAGED = 'ENGAGED',
+  WITHDRAWN = 'WITHDRAWN',
+  REJECTED = 'REJECTED'
+}
+
+export enum PhotoBlurRule {
+  ALWAYS_CLEAR = 'ALWAYS_CLEAR',
+  BLUR_UNTIL_MUTUAL_MATCH = 'BLUR_UNTIL_MUTUAL_MATCH',
+  BLUR_UNTIL_UNLOCKED = 'BLUR_UNTIL_UNLOCKED'
+}
+
+export enum SubscriptionTierType {
+  FREE = 'FREE',
+  PREMIUM_INDIVIDUAL = 'PREMIUM_INDIVIDUAL',
+  FAMILY_PREMIUM = 'FAMILY_PREMIUM',
+  CONCIERGE = 'CONCIERGE'
+}

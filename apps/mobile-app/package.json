@@ -1,0 +1,24 @@
+﻿{
+  "name": "@wasl/mobile-app",
+  "version": "1.0.0",
+  "private": true,
+  "main": "index.js",
+  "scripts": {
+    "start": "expo start",
+    "android": "expo start --android",
+    "ios": "expo start --ios",
+    "web": "expo start --web",
+    "build": "tsc --noEmit",
+    "lint": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@wasl/shared-types": "*",
+    "react": "^19.0.0",
+    "react-native": "^0.77.0"
+  },
+  "devDependencies": {
+    "@types/react": "^19.0.8",
+    "@types/node": "^22.10.2",
+    "typescript": "^5.7.2"
+  }
+}

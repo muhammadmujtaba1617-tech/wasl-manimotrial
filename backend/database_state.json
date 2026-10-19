@@ -1,0 +1,173 @@
+[
+  {
+    "id": "d7181409-21be-43ec-9862-43a46b18bcf2",
+    "phone": "+923007654321",
+    "email": "persistent.candidate@wasl.app",
+    "role": "CANDIDATE",
+    "createdAt": "2026-10-03T09:16:54.502Z",
+    "candidateProfile": {
+      "displayName": "Hamza Malik",
+      "gender": "MALE",
+      "dateOfBirth": "1996-03-20",
+      "heightCm": 178,
+      "maritalStatus": "Single (Never Married)",
+      "city": "Lahore",
+      "country": "Pakistan",
+      "education": "Master's from LUMS",
+      "profession": "Product Lead @ Tech Corp",
+      "sect": "Sunni",
+      "prayerLevel": "Always (5x daily)",
+      "familyStructure": "Nuclear Family",
+      "bio": "Persistent candidate record saved to database.",
+      "hobbies": [
+        "Tech",
+        "Cricket",
+        "Travel"
+      ],
+      "photos": [
+        "https://media.wasl.app/photos/hamza.jpg"
+      ],
+      "isVerified": true
+    }
+  },
+  {
+    "id": "8d4e202f-ea7b-4ee8-95e0-811c141c7e75",
+    "email": "user@example.com",
+    "role": "CANDIDATE",
+    "createdAt": "2026-10-03T11:59:17.417Z",
+    "candidateProfile": {
+      "displayName": "amna",
+      "gender": "FEMALE",
+      "dateOfBirth": "",
+      "heightCm": 164,
+      "maritalStatus": "Single (Never Married)",
+      "city": "Lahore, Pakistan",
+      "country": "Pakistani",
+      "education": "Bachelor's Degree from ",
+      "profession": " ()",
+      "sect": "Sunni",
+      "prayerLevel": "Always (5x daily)",
+      "familyStructure": "Nuclear Family",
+      "bio": "",
+      "hobbies": [],
+      "photos": [
+        ""
+      ],
+      "isVerified": true,
+      "caste": "Arain"
+    }
+  },
+  {
+    "id": "84c6b1c4-3d34-45fe-8017-d74d1aab1433",
+    "phone": "+923226313048",
+    "email": "ahmad@example.com",
+    "role": "CANDIDATE",
+    "createdAt": "2026-10-03T12:58:32.028Z",
+    "candidateProfile": {
+      "displayName": "ahmad",
+      "gender": "FEMALE",
+      "dateOfBirth": "1998-06-15",
+      "heightCm": 165,
+      "maritalStatus": "Single (Never Married)",
+      "city": "Lahore, Pakistan",
+      "country": "Pakistani",
+      "education": "Bachelor's Degree from LUMS / NUST / IBA",
+      "profession": "Software Engineer / Product Lead (Technology & Enterprise SaaS)",
+      "sect": "Sunni",
+      "caste": "Jatt",
+      "prayerLevel": "Always (5x daily)",
+      "familyStructure": "Nuclear Family",
+      "bio": "Looking for a pious, ambitious, and family-oriented partner with whom I can build a fulfilling life rooted in Islamic values and mutual respect.",
+      "hobbies": [
+        "Islamic Studies",
+        "Travel & Exploring",
+        "Tech & Startups"
+      ],
+      "photos": [
+        "https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&q=80&w=800"
+      ],
+      "isVerified": true
+    }
+  },
+  {
+    "id": "064c2b1a-767f-494d-b128-66b519823d8f",
+    "phone": "+923001234567",
+    "role": "CANDIDATE",
+    "createdAt": "2026-10-08T11:22:54.540Z",
+    "candidateProfile": {
+      "displayName": "Shahzain",
+      "gender": "MALE",
+      "dateOfBirth": "",
+      "heightCm": 175,
+      "maritalStatus": "Single (Never Married)",
+      "city": "Lahore, Pakistan",
+      "country": "Pakistani",
+      "education": "Bachelor's Degree from ",
+      "profession": " ()",
+      "sect": "Sunni",
+      "caste": "Arain",
+      "prayerLevel": "Always (5x daily)",
+      "familyStructure": "Nuclear Family",
+      "bio": "",
+      "hobbies": [],
+      "photos": [
+        ""
+      ],
+      "isVerified": true
+    }
+  },
+  {
+    "id": "c916659b-acdc-432a-8906-5a13e8d9c10c",
+    "email": "Zainab@gmail.com",
+    "role": "CANDIDATE",
+    "createdAt": "2026-10-10T10:29:34.336Z",
+    "candidateProfile": {
+      "displayName": "Zainab",
+      "gender": "FEMALE",
+      "dateOfBirth": "",
+      "heightCm": 175,
+      "maritalStatus": "Single (Never Married)",
+      "city": "Lahore, Pakistan",
+      "country": "Pakistani",
+      "education": "Bachelor's Degree from ",
+      "profession": " ()",
+      "sect": "Sunni",
+      "caste": "Arain",
+      "prayerLevel": "Always (5x daily)",
+      "familyStructure": "Nuclear Family",
+      "bio": "",
+      "hobbies": [],
+      "photos": [
+        ""
+      ],
+      "isVerified": true
+    }
+  },
+  {
+    "id": "a857a526-cee7-4fdf-9e4a-d53510b764ad",
+    "email": "maryam@gmail.com",
+    "role": "CANDIDATE",
+    "createdAt": "2026-10-10T10:31:24.134Z",
+    "candidateProfile": {
+      "displayName": "Maryam",
+      "gender": "FEMALE",
+      "dateOfBirth": "",
+      "heightCm": 175,
+      "maritalStatus": "Single (Never Married)",
+      "city": "Lahore, Pakistan",
+      "country": "Pakistani",
+      "education": "Bachelor's Degree from ",
+      "profession": " ()",
+      "sect": "Sunni",
+      "caste": "Arain",
+      "prayerLevel": "Always (5x daily)",
+      "familyStructure": "Nuclear Family",
+      "bio": "",
+      "hobbies": [],
+      "photos": [
+        ""
+      ],
+      "isVerified": true
+    }
+  }
+]

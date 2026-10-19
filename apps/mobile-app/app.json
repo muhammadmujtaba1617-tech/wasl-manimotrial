@@ -1,0 +1,29 @@
+﻿{
+  "expo": {
+    "name": "Wasl Matrimonial",
+    "slug": "wasl-rishta",
+    "version": "1.0.0",
+    "orientation": "portrait",
+    "icon": "./assets/icon.png",
+    "userInterfaceStyle": "light",
+    "splash": {
+      "image": "./assets/splash.png",
+      "resizeMode": "contain",
+      "backgroundColor": "#0F5132"
+    },
+    "ios": {
+      "supportsTablet": false,
+      "bundleIdentifier": "pk.wasl.matrimonial"
+    },
+    "android": {
+      "adaptiveIcon": {
+        "foregroundImage": "./assets/adaptive-icon.png",
+        "backgroundColor": "#0F5132"
+      },
+      "package": "pk.wasl.matrimonial"
+    },
+    "extra": {
+      "apiBaseUrl": "http://localhost:4000"
+    }
+  }
+}

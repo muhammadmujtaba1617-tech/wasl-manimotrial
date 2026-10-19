@@ -1,0 +1,445 @@
+generator client {
+  provider        = "prisma-client-js"
+  previewFeatures = ["postgresqlExtensions"]
+}
+
+datasource db {
+  provider   = "postgresql"
+  url        = env("DATABASE_URL")
+  extensions = [pgcrypto, vector]
+}
+
+enum UserRole {
+  CANDIDATE
+  GUARDIAN
+  MODERATOR
+  CONCIERGE
+  ADMIN
+}
+
+enum GenderType {
+  MALE
+  FEMALE
+}
+
+enum MaritalStatusType {
+  NEVER_MARRIED
+  DIVORCED
+  WIDOWED
+  ANNULLED
+}
+
+enum ReligiousPracticeLevel {
+  VERY_PRACTICING
+  PRACTICING
+  MODERATE
+  LIBERAL
+}
+
+enum SectType {
+  SUNNI_HANAFI
+  SUNNI_OTHER
+  SHIA
+  DEOBANDI
+  BARELVI
+  AHLE_HADITH
+  OTHER
+  PREFER_NOT_TO_SAY
+}
+
+enum FamilyStructureType {
+  NUCLEAR
+  JOINT
+  FLEXIBLE
+}
+
+enum RelocationFlexibilityType {
+  SAME_CITY_ONLY
+  ANYWHERE_IN_PAKISTAN
+  ABROAD_ONLY
+  GLOBAL_FLEXIBLE
+}
+
+enum FinancialBracketType {
+  TIER_1
+  TIER_2
+  TIER_3
+  TIER_4
+  TIER_5
+}
+
+enum BadgeStatusType {
+  PENDING
+  VERIFIED
+  REJECTED
+  EXPIRED
+}
+
+enum GuardianRelationType {
+  FATHER
+  MOTHER
+  BROTHER
+  SISTER
+  UNCLE
+  AUNT
+  OTHER_WALI
+}
+
+enum ProposalStatus {
+  DISCOVERED
+  INTERESTED
+  FAMILY_INTERESTED
+  INTRODUCTION_REQUESTED
+  SUPERVISED_CHAT
+  VOICE_VIDEO
+  FAMILY_MEETING
+  ENGAGED
+  WITHDRAWN
+  REJECTED
+}
+
+enum PhotoBlurRule {
+  ALWAYS_CLEAR
+  BLUR_UNTIL_MUTUAL_MATCH
+  BLUR_UNTIL_UNLOCKED
+}
+
+enum SubscriptionTierType {
+  FREE
+  PREMIUM_INDIVIDUAL
+  FAMILY_PREMIUM
+  CONCIERGE
+}
+
+model User {
+  id               String       @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  phone            String       @unique @db.VarChar(20)
+  phoneVerifiedAt  DateTime?    @map("phone_verified_at") @db.Timestamptz()
+  email            String?      @unique @db.VarChar(255)
+  emailVerifiedAt  DateTime?    @map("email_verified_at") @db.Timestamptz()
+  passwordHash     String?      @map("password_hash") @db.VarChar(255)
+  role             UserRole     @default(CANDIDATE)
+  isActive         Boolean      @default(true) @map("is_active")
+  isBanned         Boolean      @default(false) @map("is_banned")
+  banReason        String?      @map("ban_reason")
+  createdAt        DateTime     @default(now()) @map("created_at") @db.Timestamptz()
+  updatedAt        DateTime     @default(now()) @updatedAt @map("updated_at") @db.Timestamptz()
+
+  candidate        Candidate?
+  guardianLinks    Guardian[]   @relation("GuardianUser")
+  verifiedBadges   VerificationBadge[] @relation("BadgeVerifier")
+  proposalEvents   ProposalEvent[] @relation("ProposalEventActor")
+  actionsOnProposals Proposal[] @relation("ProposalLastActionBy")
+  messages         Message[]
+  reportedFlags    ModerationFlag[] @relation("ReportedUser")
+  targetedFlags    ModerationFlag[] @relation("TargetedUser")
+  reviewedFlags    ModerationFlag[] @relation("ReviewerModerator")
+  subscriptions    UserSubscription[]
+
+  @@map("users")
+}
+
+model Candidate {
+  id                 String       @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  userId             String       @unique @map("user_id") @db.Uuid
+  user               User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+  displayName        String       @map("display_name") @db.VarChar(100)
+  gender             GenderType
+  dateOfBirth        DateTime     @map("date_of_birth") @db.Date
+  heightCm           Int          @map("height_cm") @db.SmallInt
+  maritalStatus      MaritalStatusType @map("marital_status")
+  childrenCount      Int          @default(0) @map("children_count") @db.SmallInt
+  currentCity        String       @map("current_city") @db.VarChar(100)
+  currentCountry     String       @default("Pakistan") @map("current_country") @db.VarChar(100)
+  originCity         String?      @map("origin_city") @db.VarChar(100)
+  isProfileCompleted Boolean      @default(false) @map("is_profile_completed")
+  isProfileApproved  Boolean      @default(false) @map("is_profile_approved")
+  createdAt          DateTime     @default(now()) @map("created_at") @db.Timestamptz()
+  updatedAt          DateTime     @default(now()) @updatedAt @map("updated_at") @db.Timestamptz()
+
+  profile            CandidateProfile?
+  preferences        CandidatePreferences?
+  photos             ProfilePhoto[]
+  badges             VerificationBadge[]
+  documents          VerificationDocument[]
+  guardians          Guardian[]
+  initiatedProposals Proposal[]   @relation("InitiatedProposals")
+  receivedProposals  Proposal[]   @relation("ReceivedProposals")
+  embedding          ProfileEmbedding?
+
+  @@map("candidates")
+}
+
+model CandidateProfile {
+  id                       String                 @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  candidateId              String                 @unique @map("candidate_id") @db.Uuid
+  candidate                Candidate              @relation(fields: [candidateId], references: [id], onDelete: Cascade)
+  educationLevel           String                 @map("education_level") @db.VarChar(100)
+  degreeTitle              String?                @map("degree_title") @db.VarChar(150)
+  institutionName          String?                @map("institution_name") @db.VarChar(200)
+  occupationTitle          String                 @map("occupation_title") @db.VarChar(150)
+  companyName              String?                @map("company_name") @db.VarChar(200)
+  monthlyIncomeBracket     FinancialBracketType   @map("monthly_income_bracket")
+  religiousPractice        ReligiousPracticeLevel @map("religious_practice")
+  sect                     SectType               @default(PREFER_NOT_TO_SAY)
+  praysFrequency           String?                @map("prays_frequency") @db.VarChar(50)
+  fastsRamadan             Boolean                @default(true) @map("fasts_ramadan")
+  hijabOrBeardPreference   String?                @map("hijab_or_beard_preference") @db.VarChar(100)
+  familyStructureCurrent   FamilyStructureType    @map("family_structure_current")
+  familyStructurePreference FamilyStructureType   @map("family_structure_preference")
+  relocationFlexibility    RelocationFlexibilityType @map("relocation_flexibility")
+  housingSituation         String?                @map("housing_situation") @db.VarChar(100)
+  aboutMe                  String?                @map("about_me") @db.Text
+  aboutFamily              String?                @map("about_family") @db.Text
+  hobbiesInterests         String[]               @map("hobbies_interests")
+  createdAt                DateTime               @default(now()) @map("created_at") @db.Timestamptz()
+  updatedAt                DateTime               @default(now()) @updatedAt @map("updated_at") @db.Timestamptz()
+
+  @@map("candidate_profiles")
+}
+
+model CandidatePreferences {
+  id                            String                     @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  candidateId                   String                     @unique @map("candidate_id") @db.Uuid
+  candidate                     Candidate                  @relation(fields: [candidateId], references: [id], onDelete: Cascade)
+  minAge                        Int                        @default(18) @map("min_age") @db.SmallInt
+  maxAge                        Int                        @default(60) @map("max_age") @db.SmallInt
+  minHeightCm                   Int                        @default(120) @map("min_height_cm") @db.SmallInt
+  maxHeightCm                   Int                        @default(230) @map("max_height_cm") @db.SmallInt
+  allowedMaritalStatuses        MaritalStatusType[]        @map("allowed_marital_statuses")
+  allowedSects                  SectType[]                 @map("allowed_sects")
+  allowedReligiousLevels        ReligiousPracticeLevel[]   @map("allowed_religious_levels")
+  allowedEducationLevels        String[]                   @map("allowed_education_levels")
+  allowedCities                 String[]                   @map("allowed_cities")
+  relocationAcceptance          RelocationFlexibilityType[] @map("relocation_acceptance")
+  familyStructureAcceptance     FamilyStructureType[]      @map("family_structure_acceptance")
+  careerAfterMarriagePreference String?                    @map("career_after_marriage_preference") @db.VarChar(100)
+  dealBreakers                  String[]                   @map("deal_breakers")
+  createdAt                     DateTime                   @default(now()) @map("created_at") @db.Timestamptz()
+  updatedAt                     DateTime                   @default(now()) @updatedAt @map("updated_at") @db.Timestamptz()
+
+  @@map("candidate_preferences")
+}
+
+model ProfilePhoto {
+  id                   String        @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  candidateId          String        @map("candidate_id") @db.Uuid
+  candidate            Candidate     @relation(fields: [candidateId], references: [id], onDelete: Cascade)
+  storagePath          String        @map("storage_path") @db.VarChar(500)
+  blurredStoragePath   String        @map("blurred_storage_path") @db.VarChar(500)
+  isPrimary            Boolean       @default(false) @map("is_primary")
+  isVerifiedSelfieMatch Boolean      @default(false) @map("is_verified_selfie_match")
+  blurRule             PhotoBlurRule @default(BLUR_UNTIL_MUTUAL_MATCH) @map("blur_rule")
+  sortOrder            Int           @default(0) @map("sort_order") @db.SmallInt
+  createdAt            DateTime      @default(now()) @map("created_at") @db.Timestamptz()
+
+  @@map("profile_photos")
+}
+
+model VerificationBadge {
+  id                   String          @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  candidateId          String          @map("candidate_id") @db.Uuid
+  candidate            Candidate       @relation(fields: [candidateId], references: [id], onDelete: Cascade)
+  badgeType            String          @map("badge_type") @db.VarChar(50)
+  status               BadgeStatusType @default(PENDING)
+  verifiedAt           DateTime?       @map("verified_at") @db.Timestamptz()
+  expiresAt            DateTime?       @map("expires_at") @db.Timestamptz()
+  verifierModeratorId  String?         @map("verifier_moderator_id") @db.Uuid
+  verifierModerator    User?           @relation("BadgeVerifier", fields: [verifierModeratorId], references: [id])
+  verificationMetadata Json?           @map("verification_metadata")
+  createdAt            DateTime        @default(now()) @map("created_at") @db.Timestamptz()
+
+  @@unique([candidateId, badgeType])
+  @@map("verification_badges")
+}
+
+model VerificationDocument {
+  id                       String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  candidateId              String    @map("candidate_id") @db.Uuid
+  candidate                Candidate @relation(fields: [candidateId], references: [id], onDelete: Cascade)
+  documentType             String    @map("document_type") @db.VarChar(50)
+  encryptedFilePath        String    @map("encrypted_file_path") @db.VarChar(500)
+  kmsKeyId                 String    @map("kms_key_id") @db.VarChar(255)
+  extractedDataEncrypted   Bytes?    @map("extracted_data_encrypted")
+  isDeletedPostVerification Boolean  @default(false) @map("is_deleted_post_verification")
+  createdAt                DateTime  @default(now()) @map("created_at") @db.Timestamptz()
+
+  @@map("verification_documents")
+}
+
+model Guardian {
+  id               String               @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  candidateId      String               @map("candidate_id") @db.Uuid
+  candidate        Candidate            @relation(fields: [candidateId], references: [id], onDelete: Cascade)
+  guardianUserId   String?              @map("guardian_user_id") @db.Uuid
+  guardianUser     User?                @relation("GuardianUser", fields: [guardianUserId], references: [id], onDelete: SetNull)
+  invitedPhone     String               @map("invited_phone") @db.VarChar(20)
+  invitedName      String               @map("invited_name") @db.VarChar(100)
+  relationship     GuardianRelationType
+  isInviteAccepted Boolean              @default(false) @map("is_invite_accepted")
+  createdAt        DateTime             @default(now()) @map("created_at") @db.Timestamptz()
+
+  permissions      GuardianPermission[]
+
+  @@unique([candidateId, invitedPhone])
+  @@map("guardians")
+}
+
+model GuardianPermission {
+  id             String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  guardianId     String    @map("guardian_id") @db.Uuid
+  guardian       Guardian  @relation(fields: [guardianId], references: [id], onDelete: Cascade)
+  permissionName String    @map("permission_name") @db.VarChar(50)
+  isGranted      Boolean   @default(true) @map("is_granted")
+  grantedAt      DateTime  @default(now()) @map("granted_at") @db.Timestamptz()
+  revokedAt      DateTime? @map("revoked_at") @db.Timestamptz()
+
+  @@unique([guardianId, permissionName])
+  @@map("guardian_permissions")
+}
+
+model ProfileEmbedding {
+  candidateId  String                       @id @map("candidate_id") @db.Uuid
+  candidate    Candidate                    @relation(fields: [candidateId], references: [id], onDelete: Cascade)
+  embedding    Unsupported("vector(768)")
+  modelVersion String                       @map("model_version") @db.VarChar(50)
+  updatedAt    DateTime                     @default(now()) @updatedAt @map("updated_at") @db.Timestamptz()
+
+  @@map("profile_embeddings")
+}
+
+model Proposal {
+  id                   String         @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  initiatorCandidateId String         @map("initiator_candidate_id") @db.Uuid
+  initiatorCandidate   Candidate      @relation("InitiatedProposals", fields: [initiatorCandidateId], references: [id], onDelete: Cascade)
+  recipientCandidateId String         @map("recipient_candidate_id") @db.Uuid
+  recipientCandidate   Candidate      @relation("ReceivedProposals", fields: [recipientCandidateId], references: [id], onDelete: Cascade)
+  currentStatus        ProposalStatus @default(DISCOVERED) @map("current_status")
+  compatibilityScoreId String?        @map("compatibility_score_id") @db.Uuid
+  isActive             Boolean        @default(true) @map("is_active")
+  lastActionBy         String         @map("last_action_by") @db.Uuid
+  lastActionUser       User           @relation("ProposalLastActionBy", fields: [lastActionBy], references: [id])
+  createdAt            DateTime       @default(now()) @map("created_at") @db.Timestamptz()
+  updatedAt            DateTime       @default(now()) @updatedAt @map("updated_at") @db.Timestamptz()
+
+  events               ProposalEvent[]
+  conversationThread   ConversationThread?
+
+  @@unique([initiatorCandidateId, recipientCandidateId])
+  @@map("proposals")
+}
+
+model ProposalEvent {
+  id            String         @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  proposalId    String         @map("proposal_id") @db.Uuid
+  proposal      Proposal       @relation(fields: [proposalId], references: [id], onDelete: Cascade)
+  fromStatus    ProposalStatus @map("from_status")
+  toStatus      ProposalStatus @map("to_status")
+  actorUserId   String         @map("actor_user_id") @db.Uuid
+  actorUser     User           @relation("ProposalEventActor", fields: [actorUserId], references: [id])
+  actorRole     UserRole       @map("actor_role")
+  reasonNote    String?        @map("reason_note") @db.Text
+  eventMetadata Json?          @map("event_metadata")
+  createdAt     DateTime       @default(now()) @map("created_at") @db.Timestamptz()
+
+  @@index([proposalId, createdAt])
+  @@map("proposal_events")
+}
+
+model CompatibilityScore {
+  id                      String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  candidateAId            String    @map("candidate_a_id") @db.Uuid
+  candidateBId            String    @map("candidate_b_id") @db.Uuid
+  overallScore            Int       @map("overall_score") @db.SmallInt
+  dimensionScores         Json      @map("dimension_scores")
+  alignments              String[]
+  discussionPoints        String[]  @map("discussion_points")
+  llmExplanation          String?   @map("llm_explanation") @db.Text
+  llmConversationStarters String[]  @map("llm_conversation_starters")
+  engineVersion           String    @default("v1.0.0-deterministic") @map("engine_version") @db.VarChar(50)
+  featureHash             String    @map("feature_hash") @db.VarChar(64)
+  calculatedAt            DateTime  @default(now()) @map("calculated_at") @db.Timestamptz()
+
+  @@unique([candidateAId, candidateBId, engineVersion])
+  @@map("compatibility_scores")
+}
+
+model ConversationThread {
+  id                 String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  proposalId         String    @unique @map("proposal_id") @db.Uuid
+  proposal           Proposal  @relation(fields: [proposalId], references: [id], onDelete: Cascade)
+  isChaperoned       Boolean   @default(false) @map("is_chaperoned")
+  activeChaperoneIds String[]  @default([]) @map("active_chaperone_ids") @db.Uuid
+  isLocked           Boolean   @default(false) @map("is_locked")
+  createdAt          DateTime  @default(now()) @map("created_at") @db.Timestamptz()
+  updatedAt          DateTime  @default(now()) @updatedAt @map("updated_at") @db.Timestamptz()
+
+  messages           Message[]
+
+  @@map("conversation_threads")
+}
+
+model Message {
+  id                 String             @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  threadId           String             @map("thread_id") @db.Uuid
+  thread             ConversationThread @relation(fields: [threadId], references: [id], onDelete: Cascade)
+  senderId           String             @map("sender_id") @db.Uuid
+  sender             User               @relation(fields: [senderId], references: [id])
+  messageText        String             @map("message_text") @db.Text
+  isFlaggedByAutomod Boolean            @default(false) @map("is_flagged_by_automod")
+  automodFlagReason  String?            @map("automod_flag_reason") @db.VarChar(100)
+  createdAt          DateTime           @default(now()) @map("created_at") @db.Timestamptz()
+
+  @@index([threadId, createdAt])
+  @@map("messages")
+}
+
+model ModerationFlag {
+  id                  String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  targetUserId        String    @map("target_user_id") @db.Uuid
+  targetUser          User      @relation("TargetedUser", fields: [targetUserId], references: [id])
+  reporterUserId      String?   @map("reporter_user_id") @db.Uuid
+  reporterUser        User?     @relation("ReportedUser", fields: [reporterUserId], references: [id])
+  flagType            String    @map("flag_type") @db.VarChar(50)
+  contentSnippet      String?   @map("content_snippet") @db.Text
+  systemConfidence    Float?    @map("system_confidence")
+  status              String    @default("PENDING_REVIEW") @db.VarChar(50)
+  reviewerModeratorId String?   @map("reviewer_moderator_id") @db.Uuid
+  reviewerModerator   User?     @relation("ReviewerModerator", fields: [reviewerModeratorId], references: [id])
+  resolutionNotes     String?   @map("resolution_notes") @db.Text
+  createdAt           DateTime  @default(now()) @map("created_at") @db.Timestamptz()
+  resolvedAt          DateTime? @map("resolved_at") @db.Timestamptz()
+
+  @@map("moderation_flags")
+}
+
+model SubscriptionPlan {
+  id                   String               @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  code                 String               @unique @db.VarChar(50)
+  tier                 SubscriptionTierType
+  name                 String               @db.VarChar(100)
+  pricePkr             Int                  @map("price_pkr")
+  durationDays         Int                  @map("duration_days")
+  guardianSeatsAllowed Int                  @default(0) @map("guardian_seats_allowed") @db.SmallInt
+  isActive             Boolean              @default(true) @map("is_active")
+
+  subscriptions        UserSubscription[]
+
+  @@map("subscription_plans")
+}
+
+model UserSubscription {
+  id                   String           @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  userId               String           @map("user_id") @db.Uuid
+  user                 User             @relation(fields: [userId], references: [id], onDelete: Cascade)
+  planId               String           @map("plan_id") @db.Uuid
+  plan                 SubscriptionPlan @relation(fields: [planId], references: [id])
+  startsAt             DateTime         @default(now()) @map("starts_at") @db.Timestamptz()
+  expiresAt            DateTime         @map("expires_at") @db.Timestamptz()
+  isActive             Boolean          @default(true) @map("is_active")
+  paymentMethod        String           @map("payment_method") @db.VarChar(50)
+  gatewayTransactionId String?          @map("gateway_transaction_id") @db.VarChar(255)
+  createdAt            DateTime         @default(now()) @map("created_at") @db.Timestamptz()
+
+  @@map("user_subscriptions")
+}

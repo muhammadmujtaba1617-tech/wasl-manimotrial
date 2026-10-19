@@ -1,0 +1,20 @@
+{
+  "name": "@wasl/compatibility-engine",
+  "version": "1.0.0",
+  "type": "module",
+  "private": true,
+  "main": "./dist/src/index.js",
+  "types": "./dist/src/index.d.ts",
+  "scripts": {
+    "build": "tsc",
+    "dev": "tsc -w",
+    "test": "node --test dist/tests/**/*.test.js"
+  },
+  "dependencies": {
+    "@wasl/shared-types": "*"
+  },
+  "devDependencies": {
+    "@types/node": "^22.10.2",
+    "typescript": "^5.7.2"
+  }
+}
