@@ -67,7 +67,7 @@ const RICH_RECOMMENDATIONS: CandidateFullProfile[] = [
       'https://images.unsplash.com/photo-1517841905240-472988babdf9?auto=format&fit=crop&q=80&w=900',
       'https://images.unsplash.com/photo-1524504388940-b1c1722653e1?auto=format&fit=crop&q=80&w=900'
     ],
-    photoBlurred: true,
+    photoBlurred: false,
     score: 94,
     aboutMe:
       'I consider myself a thoughtful, grounded, and ambitious individual. After completing my MBA at LUMS, I joined the fintech ecosystem where I build growth strategies. On weekends, I love exploring local coffee shops, hosting family dinners, reading historical Islamic nonfiction, and volunteering in youth literacy drives.',
@@ -140,7 +140,7 @@ const RICH_RECOMMENDATIONS: CandidateFullProfile[] = [
       'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?auto=format&fit=crop&q=80&w=900',
       'https://images.unsplash.com/photo-1500648767791-00dcc994a43e?auto=format&fit=crop&q=80&w=900'
     ],
-    photoBlurred: true,
+    photoBlurred: false,
     score: 93,
     aboutMe:
       'Passionate about software architecture, clean code, and technology entrepreneurship. In my free time, I play badminton, enjoy trail runs, and read about Islamic history and economics.',
@@ -201,7 +201,7 @@ const RICH_RECOMMENDATIONS: CandidateFullProfile[] = [
       'https://images.unsplash.com/photo-1544005313-94ddf0286df2?auto=format&fit=crop&q=80&w=900',
       'https://images.unsplash.com/photo-1531746020798-e6953c6e8e04?auto=format&fit=crop&q=80&w=900'
     ],
-    photoBlurred: true,
+    photoBlurred: false,
     score: 89,
     aboutMe:
       'Trained as a physician before pivoting to data science to build better health algorithms. When I am not training models or reading clinical papers, you will find me trail hiking in the Margalla Hills, brewing pour-over coffee, or volunteering with medical relief charities.',
@@ -273,7 +273,7 @@ const RICH_RECOMMENDATIONS: CandidateFullProfile[] = [
       'https://images.unsplash.com/photo-1506794778202-cad84cf45f1d?auto=format&fit=crop&q=80&w=900',
       'https://images.unsplash.com/photo-1519085360753-af0119f7cbe7?auto=format&fit=crop&q=80&w=900'
     ],
-    photoBlurred: true,
+    photoBlurred: false,
     score: 91,
     aboutMe:
       'Dedicated to medicine and helping patients regain mobility. Calm, empathetic, and family-centered. Enjoy equestrian riding, nature photography, and weekend family get-togethers.',
@@ -334,7 +334,7 @@ const RICH_RECOMMENDATIONS: CandidateFullProfile[] = [
       'https://images.unsplash.com/photo-1517841905240-472988babdf9?auto=format&fit=crop&q=80&w=900',
       'https://images.unsplash.com/photo-1494790108377-be9c29b29330?auto=format&fit=crop&q=80&w=900'
     ],
-    photoBlurred: true,
+    photoBlurred: false,
     score: 85,
     aboutMe:
       'British-Pakistani born and raised in London with deep affection for my Pakistani heritage. Working in the City of London in sustainable investment. I enjoy photography, visiting art museums, and traveling to the Mediterranean and northern Pakistan.',
@@ -406,7 +406,7 @@ const RICH_RECOMMENDATIONS: CandidateFullProfile[] = [
       'https://images.unsplash.com/photo-1573496359142-b8d87734a5a2?auto=format&fit=crop&q=80&w=900',
       'https://images.unsplash.com/photo-1580489944761-15a19d654956?auto=format&fit=crop&q=80&w=900'
     ],
-    photoBlurred: true,
+    photoBlurred: false,
     score: 92,
     aboutMe:
       'Public service professional passionate about good governance, education reform, and social welfare. Enjoy Urdu literature, calligraphy, and family outings.',
@@ -463,7 +463,7 @@ const RICH_RECOMMENDATIONS: CandidateFullProfile[] = [
       'https://images.unsplash.com/photo-1500648767791-00dcc994a43e?auto=format&fit=crop&q=80&w=900',
       'https://images.unsplash.com/photo-1492562080023-ab3db95bfbce?auto=format&fit=crop&q=80&w=900'
     ],
-    photoBlurred: true,
+    photoBlurred: false,
     score: 88,
     aboutMe:
       'Working in global asset management in central London. Passionate about ethical finance, fitness, cricket, and weekend road trips.',
@@ -513,7 +513,7 @@ const RICH_RECOMMENDATIONS: CandidateFullProfile[] = [
       'https://images.unsplash.com/photo-1539571696357-5a69c17a67c6?auto=format&fit=crop&q=80&w=900',
       'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?auto=format&fit=crop&q=80&w=900'
     ],
-    photoBlurred: true,
+    photoBlurred: false,
     score: 87,
     aboutMe:
       'Architect with a passion for sustainable Islamic architecture and historic restoration. Love sketching, cycling, and exploring traditional craft bazaars.',
@@ -547,7 +547,7 @@ type SortOption = 'SCORE_DESC' | 'NAME_ASC' | 'NAME_DESC' | 'AGE_ASC' | 'AGE_DES
 type GenderFilter = 'ALL' | 'FEMALE' | 'MALE';
 
 export default function DashboardPage() {
-  const [candidates, setCandidates] = useState<CandidateFullProfile[]>([]);
+  const [candidates, setCandidates] = useState<CandidateFullProfile[]>(RICH_RECOMMENDATIONS);
   const [matchStates, setMatchStates] = useState<Record<string, MatchStatus>>(getMatchStates);
   const [consentModalTarget, setConsentModalTarget] = useState<CandidateFullProfile | null>(null);
   const [selectedCandidate, setSelectedCandidate] = useState<CandidateFullProfile | null>(null);
@@ -637,7 +637,7 @@ export default function DashboardPage() {
                       ? 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?auto=format&fit=crop&q=80&w=900'
                       : 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&q=80&w=900'
                   ],
-              photoBlurred: true,
+              photoBlurred: false,
               score: 95,
               aboutMe: p.bio || 'Authentic verified member registered on Wasl Matrimonial Service.',
               idealPartner: 'Looking for a sincere, pious, and emotionally mature life partner with compatible family values.',
@@ -671,7 +671,14 @@ export default function DashboardPage() {
             registeredProfiles.push(formatted);
           }
 
-          setCandidates(registeredProfiles);
+          if (registeredProfiles.length > 0) {
+            const registeredNames = new Set(registeredProfiles.map(r => r.name.toLowerCase()));
+            const merged = [
+              ...registeredProfiles,
+              ...RICH_RECOMMENDATIONS.filter(c => !registeredNames.has(c.name.toLowerCase()))
+            ];
+            setCandidates(merged);
+          }
         }
       } catch (err) {
         console.warn('Failed to load persistent candidates', err);
