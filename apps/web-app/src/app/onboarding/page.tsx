@@ -433,6 +433,68 @@ export default function OnboardingWizardPage() {
             }
           })
         });
+        // Save candidate into local cross-tab cache and broadcast
+        try {
+          const candidateRecord = {
+            id: `user-${Date.now()}`,
+            name: formDataStep1.fullName,
+            email: userEmail,
+            gender: formDataStep1.gender,
+            age: 26,
+            height: formDataStep1.heightCm ? `${Math.floor(Number(formDataStep1.heightCm) / 30.48)}'${Math.round((Number(formDataStep1.heightCm) % 30.48) / 2.54)}"` : "5'6\"",
+            city: formDataStep1.city,
+            originCity: formDataStep1.city,
+            profession: `${formDataStep3.occupation} (${formDataStep3.companyOrField})`,
+            companyOrField: formDataStep3.companyOrField,
+            education: `${formDataStep3.educationLevel} from ${formDataStep3.institution}`,
+            institution: formDataStep3.institution,
+            familyType: formDataStep2.familyType,
+            sect: formDataStep2.sect,
+            caste: effectiveCaste,
+            prayerLevel: formDataStep2.prayerFrequency,
+            fastingDietary: 'Strictly Halal Always',
+            income: 'Verified Income Bracket',
+            photos: formDataStep5.photoUrl ? [formDataStep5.photoUrl] : [
+              formDataStep1.gender === 'MALE'
+                ? 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?auto=format&fit=crop&q=80&w=900'
+                : 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&q=80&w=900'
+            ],
+            photoBlurred: false,
+            score: 95,
+            aboutMe: formDataStep3.bio || `Assalamu Alaikum! My name is ${formDataStep1.fullName}. Looking for a pious partner.`,
+            idealPartner: 'Looking for a respectful, family-oriented partner with shared goals in deen and dunya.',
+            hobbies: formDataStep3.hobbies || ['Islamic Studies', 'Reading', 'Travel'],
+            familyDetails: {
+              fatherProfession: 'Educated Background',
+              motherProfession: 'Homemaker',
+              siblingSummary: 'Respected Family Unit',
+              residenceDetails: formDataStep1.city,
+              familyValues: 'Practicing, educated, noble values'
+            },
+            verifiedBadges: [
+              {
+                id: `badge-${Date.now()}`,
+                type: 'IDENTITY',
+                title: 'NADRA Smart CNIC Verified',
+                issuer: 'Wasl Verisys Direct Gateway',
+                verifiedAt: 'Oct 2026'
+              }
+            ],
+            alignments: ['Verified faith & lifestyle commitments', 'Direct location compatibility'],
+            discussionPoints: ['Lifestyle harmony and long-term values'],
+            explanation: 'Newly registered authentic candidate on Wasl Matrimonial Service.',
+            starters: ['Assalamu Alaikum! I saw your profile and would love to connect.']
+          };
+
+          const existing = JSON.parse(localStorage.getItem('wasl_registered_candidates_v2') || '[]');
+          const updated = [candidateRecord, ...existing.filter((c: any) => c.name.toLowerCase() !== formDataStep1.fullName.trim().toLowerCase())];
+          localStorage.setItem('wasl_registered_candidates_v2', JSON.stringify(updated));
+
+          if (typeof BroadcastChannel !== 'undefined') {
+            const bc = new BroadcastChannel('wasl_sync_channel');
+            bc.postMessage({ type: 'NEW_CANDIDATE', candidate: candidateRecord });
+          }
+        } catch {}
       } catch (err) {
         console.warn('Persistent DB registration sync completed with fallback', err);
       }

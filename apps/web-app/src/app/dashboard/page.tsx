@@ -668,13 +668,33 @@ export default function DashboardPage() {
               starters: ['Assalamu Alaikum! I reviewed your profile and noticed our values align remarkably well.']
             };
 
+            (formatted as any).email = u.email;
             registeredProfiles.push(formatted);
           }
 
-          if (registeredProfiles.length > 0) {
-            const registeredNames = new Set(registeredProfiles.map(r => r.name.toLowerCase()));
+          // Merge local cross-tab cache candidates
+          let localCandidates: CandidateFullProfile[] = [];
+          try {
+            const raw = localStorage.getItem('wasl_registered_candidates_v2');
+            if (raw) {
+              const parsed = JSON.parse(raw);
+              if (Array.isArray(parsed)) {
+                localCandidates = parsed;
+              }
+            }
+          } catch {}
+
+          const allNewCandidates = [...registeredProfiles];
+          for (const lc of localCandidates) {
+            if (!allNewCandidates.some(c => c.name.toLowerCase() === lc.name.toLowerCase())) {
+              allNewCandidates.push(lc);
+            }
+          }
+
+          if (allNewCandidates.length > 0) {
+            const registeredNames = new Set(allNewCandidates.map(r => r.name.toLowerCase()));
             const merged = [
-              ...registeredProfiles,
+              ...allNewCandidates,
               ...RICH_RECOMMENDATIONS.filter(c => !registeredNames.has(c.name.toLowerCase()))
             ];
             setCandidates(merged);
@@ -687,12 +707,32 @@ export default function DashboardPage() {
 
     fetchRegisteredCandidates();
 
+    // Cross-tab real-time sync via BroadcastChannel
+    let bc: BroadcastChannel | null = null;
+    if (typeof BroadcastChannel !== 'undefined') {
+      bc = new BroadcastChannel('wasl_sync_channel');
+      bc.onmessage = () => {
+        fetchRegisteredCandidates();
+      };
+    }
+
+    const handleStorage = (e: StorageEvent) => {
+      if (e.key === 'wasl_registered_candidates_v2') {
+        fetchRegisteredCandidates();
+      }
+    };
+    window.addEventListener('storage', handleStorage);
+
     const syncStates = () => {
       setMatchStates(getMatchStates());
     };
     syncStates();
     window.addEventListener('wasl_match_state_updated', syncStates);
-    return () => window.removeEventListener('wasl_match_state_updated', syncStates);
+    return () => {
+      window.removeEventListener('wasl_match_state_updated', syncStates);
+      window.removeEventListener('storage', handleStorage);
+      if (bc) bc.close();
+    };
   }, []);
 
   const handleToggleIncognito = async () => {
@@ -803,16 +843,18 @@ export default function DashboardPage() {
         if (selectedAgeFilter === '31-35' && (c.age < 31 || c.age > 35)) return false;
         if (selectedAgeFilter === '36+' && c.age < 36) return false;
       }
-      // Search Query
+      // Search Query: Match ID, Email, Name, Caste, City, Profession, Education, Sect
       if (searchQuery.trim()) {
         const q = searchQuery.toLowerCase();
+        const matchesId = c.id.toLowerCase().includes(q) || c.id.replace('user-', '').toLowerCase().includes(q);
+        const matchesEmail = ((c as any).email || '').toLowerCase().includes(q);
         const matchesName = c.name.toLowerCase().includes(q);
         const matchesCaste = c.caste?.toLowerCase().includes(q);
         const matchesCity = c.city.toLowerCase().includes(q);
         const matchesProfession = c.profession.toLowerCase().includes(q);
         const matchesEdu = c.education.toLowerCase().includes(q);
         const matchesSect = c.sect.toLowerCase().includes(q);
-        if (!matchesName && !matchesCaste && !matchesCity && !matchesProfession && !matchesEdu && !matchesSect) {
+        if (!matchesId && !matchesEmail && !matchesName && !matchesCaste && !matchesCity && !matchesProfession && !matchesEdu && !matchesSect) {
           return false;
         }
       }
