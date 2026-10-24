@@ -3,10 +3,12 @@ import crypto from 'crypto';
 import fs from 'fs';
 import path from 'path';
 
-export interface PersistentUserRecord {
+interface PersistentUserRecord {
   id: string;
   phone?: string;
   email?: string;
+  passwordHash?: string;
+  passwordSalt?: string;
   role: 'CANDIDATE' | 'GUARDIAN' | 'ADMIN';
   createdAt: string;
   candidateProfile?: {
@@ -30,12 +32,23 @@ export interface PersistentUserRecord {
   };
 }
 
-// Initial verified seed profiles so discovery feed is active
+// Secure PBKDF2 Password Hashing
+function hashPassword(password: string, salt: string): string {
+  return crypto.pbkdf2Sync(password, salt, 10000, 64, 'sha512').toString('hex');
+}
+
+// Default initial salt and password for demo profiles
+const DEMO_SALT = 'wasl_secure_default_salt_2026';
+const DEMO_HASH = hashPassword('password123', DEMO_SALT);
+
+// Initial verified seed profiles
 const INITIAL_RECORDS: PersistentUserRecord[] = [
   {
     id: 'd7181409-21be-43ec-9862-43a46b18bcf2',
     phone: '+923007654321',
     email: 'hamza@wasl.app',
+    passwordHash: DEMO_HASH,
+    passwordSalt: DEMO_SALT,
     role: 'CANDIDATE',
     createdAt: new Date().toISOString(),
     candidateProfile: {
@@ -64,6 +77,8 @@ const INITIAL_RECORDS: PersistentUserRecord[] = [
     id: '84c6b1c4-3d34-45fe-8017-d74d1aab1433',
     phone: '+923226313048',
     email: 'ayesha.khan@wasl.app',
+    passwordHash: DEMO_HASH,
+    passwordSalt: DEMO_SALT,
     role: 'CANDIDATE',
     createdAt: new Date().toISOString(),
     candidateProfile: {
@@ -91,6 +106,8 @@ const INITIAL_RECORDS: PersistentUserRecord[] = [
   {
     id: 'c916659b-acdc-432a-8906-5a13e8d9c10c',
     email: 'zainab@wasl.app',
+    passwordHash: DEMO_HASH,
+    passwordSalt: DEMO_SALT,
     role: 'CANDIDATE',
     createdAt: new Date().toISOString(),
     candidateProfile: {
@@ -119,6 +136,8 @@ const INITIAL_RECORDS: PersistentUserRecord[] = [
     id: '064c2b1a-767f-494d-b128-66b519823d8f',
     phone: '+923001234567',
     email: 'shahzain@wasl.app',
+    passwordHash: DEMO_HASH,
+    passwordSalt: DEMO_SALT,
     role: 'CANDIDATE',
     createdAt: new Date().toISOString(),
     candidateProfile: {
@@ -156,7 +175,6 @@ function getMemoryStore(): Map<string, PersistentUserRecord> {
     const store = new Map<string, PersistentUserRecord>();
     INITIAL_RECORDS.forEach((rec) => store.set(rec.id, rec));
 
-    // Try reading disk cache in /tmp or cwd if available
     try {
       const tmpPath = path.join('/tmp', 'database_state.json');
       if (fs.existsSync(tmpPath)) {
@@ -179,7 +197,6 @@ function getOtpStore(): Map<string, { code: string; expiresAt: number }> {
   return globalThis.__WASL_OTP__;
 }
 
-// List of disposable/fake email domains to reject
 const BANNED_EMAIL_DOMAINS = [
   'example.com',
   'test.com',
@@ -191,9 +208,7 @@ const BANNED_EMAIL_DOMAINS = [
   'trashmail.com',
   'throwawaymail.com',
   'guerrillamail.com',
-  'yopmail.com',
-  'sharklasers.com',
-  'getairmail.com'
+  'yopmail.com'
 ];
 
 function isLegitEmail(email: string): { valid: boolean; reason?: string } {
@@ -204,12 +219,12 @@ function isLegitEmail(email: string): { valid: boolean; reason?: string } {
   }
   const domain = trimmed.split('@')[1];
   if (BANNED_EMAIL_DOMAINS.includes(domain)) {
-    return { valid: false, reason: `The email domain "${domain}" is not permitted. Please use an authentic, permanent email address.` };
+    return { valid: false, reason: `The email domain "${domain}" is not permitted. Please use an authentic personal email.` };
   }
   return { valid: true };
 }
 
-// Optional Upstash Redis integration (zero credit card needed, free tier)
+// Optional Upstash Redis integration
 async function upstashGetUsers(): Promise<PersistentUserRecord[] | null> {
   const url = process.env.UPSTASH_REDIS_REST_URL || process.env.KV_REST_API_URL;
   const token = process.env.UPSTASH_REDIS_REST_TOKEN || process.env.KV_REST_API_TOKEN;
@@ -260,6 +275,8 @@ async function getAllUsersList(): Promise<PersistentUserRecord[]> {
 async function saveUserRecord(data: {
   phone?: string;
   email?: string;
+  passwordHash?: string;
+  passwordSalt?: string;
   role?: 'CANDIDATE' | 'GUARDIAN' | 'ADMIN';
   profile?: PersistentUserRecord['candidateProfile'];
 }): Promise<PersistentUserRecord> {
@@ -276,12 +293,16 @@ async function saveUserRecord(data: {
         ...data.profile
       };
     }
+    if (data.passwordHash) existing.passwordHash = data.passwordHash;
+    if (data.passwordSalt) existing.passwordSalt = data.passwordSalt;
     targetUser = existing;
   } else {
     targetUser = {
       id: crypto.randomUUID(),
       phone: data.phone,
       email: data.email,
+      passwordHash: data.passwordHash,
+      passwordSalt: data.passwordSalt,
       role: data.role || 'CANDIDATE',
       createdAt: new Date().toISOString(),
       candidateProfile: data.profile
@@ -290,14 +311,11 @@ async function saveUserRecord(data: {
   }
 
   const allRecords = Array.from(store.values());
-  // Save to /tmp
   try {
     fs.writeFileSync(path.join('/tmp', 'database_state.json'), JSON.stringify(allRecords, null, 2), 'utf-8');
   } catch {}
 
-  // Sync to Upstash Redis if configured
   await upstashSaveUsers(allRecords);
-
   return targetUser;
 }
 
@@ -306,16 +324,42 @@ export async function GET(request: Request) {
   const url = new URL(request.url);
   const pathname = url.pathname;
 
+  // GET /api/v1/auth/me (Session Verification)
+  if (pathname.endsWith('/auth/me')) {
+    const authHeader = request.headers.get('Authorization') || '';
+    if (!authHeader.startsWith('Bearer wasl_token_')) {
+      return NextResponse.json({ authenticated: false, error: 'Unauthorized session' }, { status: 401 });
+    }
+    return NextResponse.json({ authenticated: true, status: 'active' });
+  }
+
   // GET /api/v1/persistence/all or /api/v1/discovery/candidates
   if (pathname.endsWith('/persistence/all') || pathname.endsWith('/discovery/candidates')) {
     const users = await getAllUsersList();
-    return NextResponse.json({ success: true, users });
+    // Security: sanitize records to NEVER expose password hashes or salts
+    const sanitized = users.map(u => ({
+      id: u.id,
+      phone: u.phone,
+      email: u.email,
+      role: u.role,
+      createdAt: u.createdAt,
+      candidateProfile: u.candidateProfile
+    }));
+    return NextResponse.json({ success: true, users: sanitized });
   }
 
   // GET /api/v1/persistence/me
   if (pathname.endsWith('/persistence/me')) {
     const users = await getAllUsersList();
-    return NextResponse.json({ success: true, user: users[0] || null });
+    const first = users[0];
+    const sanitized = first ? {
+      id: first.id,
+      phone: first.phone,
+      email: first.email,
+      role: first.role,
+      candidateProfile: first.candidateProfile
+    } : null;
+    return NextResponse.json({ success: true, user: sanitized });
   }
 
   // GET /api/v1/notifications/me
@@ -361,7 +405,7 @@ export async function POST(request: Request) {
     return NextResponse.json({
       success: true,
       message: `Verification code sent to ${email}.`,
-      code, // Returned for instant verification & testing transparency
+      code,
       expiresInMinutes: 10
     });
   }
@@ -385,35 +429,48 @@ export async function POST(request: Request) {
     return NextResponse.json({ success: true, message: 'Email successfully verified.' });
   }
 
-  // POST /api/v1/persistence/register
-  if (pathname.endsWith('/persistence/register')) {
-    const emailToUse = (body.email || body.phone || `user_${Date.now()}@wasl.app`).trim().toLowerCase();
-    const user = await saveUserRecord({
-      phone: body.phone,
-      email: emailToUse,
-      role: body.role || 'CANDIDATE',
-      profile: body.profile
-    });
-    return NextResponse.json({ success: true, user, message: 'User registered in persistent database.' }, { status: 201 });
-  }
-
   // POST /api/v1/auth/register
   if (pathname.endsWith('/auth/register')) {
-    const emailToUse = (body.email || (body.identifier?.includes('@') ? body.identifier : '') || `user_${Date.now()}@wasl.app`).trim().toLowerCase();
-    
-    // Check email legitimacy
-    if (emailToUse && !emailToUse.endsWith('@wasl.app')) {
+    const emailToUse = (body.email || (body.identifier?.includes('@') ? body.identifier : '') || '').trim().toLowerCase();
+    const phoneToUse = (body.phone || (!body.identifier?.includes('@') ? body.identifier : '') || '').trim();
+
+    if (!emailToUse && !phoneToUse) {
+      return NextResponse.json({ success: false, error: 'Email or mobile phone number is required.' }, { status: 400 });
+    }
+
+    if (emailToUse) {
       const check = isLegitEmail(emailToUse);
       if (!check.valid) {
         return NextResponse.json({ success: false, error: check.reason }, { status: 400 });
       }
     }
 
-    const nameToUse = (body.name || body.displayName || (emailToUse ? emailToUse.split('@')[0] : 'Verified Candidate')).trim();
+    if (!body.password || body.password.length < 6) {
+      return NextResponse.json({ success: false, error: 'Password must be at least 6 characters long.' }, { status: 400 });
+    }
+
+    // Check duplicate account
+    const allUsers = await getAllUsersList();
+    const existing = allUsers.find(
+      u => (emailToUse && u.email && u.email.toLowerCase() === emailToUse) ||
+           (phoneToUse && u.phone && u.phone === phoneToUse)
+    );
+
+    if (existing) {
+      return NextResponse.json(
+        { success: false, error: 'An account with this email/phone already exists. Please sign in.' },
+        { status: 409 }
+      );
+    }
+
+    // Secure password hashing
+    const salt = crypto.randomBytes(16).toString('hex');
+    const passwordHash = hashPassword(body.password, salt);
+
+    const nameToUse = (body.name || body.displayName || (emailToUse ? emailToUse.split('@')[0] : phoneToUse)).trim();
     const genderToUse: 'MALE' | 'FEMALE' = body.gender === 'MALE' ? 'MALE' : 'FEMALE';
     const cityToUse = (body.city || 'Lahore, Pakistan').trim();
 
-    // Construct full candidate profile automatically upon account creation
     const candidateProfile: PersistentUserRecord['candidateProfile'] = body.profile || {
       displayName: nameToUse,
       gender: genderToUse,
@@ -441,8 +498,10 @@ export async function POST(request: Request) {
     };
 
     const user = await saveUserRecord({
-      phone: body.phone,
-      email: emailToUse,
+      phone: phoneToUse || undefined,
+      email: emailToUse || undefined,
+      passwordHash,
+      passwordSalt: salt,
       role: body.role || 'CANDIDATE',
       profile: candidateProfile
     });
@@ -463,43 +522,52 @@ export async function POST(request: Request) {
   // POST /api/v1/auth/login
   if (pathname.endsWith('/auth/login')) {
     const identifier = (body.identifier || body.email || body.phone || '').trim().toLowerCase();
+    const password = (body.password || '').trim();
+
+    if (!identifier || !password) {
+      return NextResponse.json({ success: false, error: 'Please enter your email/phone and password.' }, { status: 400 });
+    }
+
     const allUsers = await getAllUsersList();
     const existing = allUsers.find(
       u => (u.email && u.email.toLowerCase() === identifier) || (u.phone && u.phone === identifier)
     );
 
-    if (existing) {
-      return NextResponse.json({
-        success: true,
-        token: `wasl_token_${crypto.randomUUID()}`,
-        user: {
-          id: existing.id,
-          email: existing.email,
-          phone: existing.phone,
-          role: existing.role,
-          candidateProfile: existing.candidateProfile
-        }
-      });
+    if (!existing) {
+      return NextResponse.json({ success: false, error: 'Invalid email/phone or password.' }, { status: 401 });
     }
 
-    // Allow login or create session
-    const newUser = await saveUserRecord({
-      email: identifier.includes('@') ? identifier : undefined,
-      phone: !identifier.includes('@') ? identifier : undefined,
-      role: body.role || 'CANDIDATE'
-    });
+    // Verify Password Hash
+    if (existing.passwordHash && existing.passwordSalt) {
+      const computedHash = hashPassword(password, existing.passwordSalt);
+      if (computedHash !== existing.passwordHash) {
+        return NextResponse.json({ success: false, error: 'Invalid email/phone or password.' }, { status: 401 });
+      }
+    }
 
     return NextResponse.json({
       success: true,
       token: `wasl_token_${crypto.randomUUID()}`,
       user: {
-        id: newUser.id,
-        email: newUser.email,
-        phone: newUser.phone,
-        role: newUser.role,
-        candidateProfile: newUser.candidateProfile
+        id: existing.id,
+        email: existing.email,
+        phone: existing.phone,
+        role: existing.role,
+        candidateProfile: existing.candidateProfile
       }
     });
+  }
+
+  // POST /api/v1/persistence/register
+  if (pathname.endsWith('/persistence/register')) {
+    const emailToUse = (body.email || body.phone || `user_${Date.now()}@wasl.app`).trim().toLowerCase();
+    const user = await saveUserRecord({
+      phone: body.phone,
+      email: emailToUse,
+      role: body.role || 'CANDIDATE',
+      profile: body.profile
+    });
+    return NextResponse.json({ success: true, user, message: 'User registered in persistent database.' }, { status: 201 });
   }
 
   // POST /api/v1/storage/upload
@@ -572,7 +640,9 @@ export async function OPTIONS() {
     headers: {
       'Access-Control-Allow-Origin': '*',
       'Access-Control-Allow-Methods': 'GET, POST, PUT, PATCH, DELETE, OPTIONS',
-      'Access-Control-Allow-Headers': 'Content-Type, Authorization'
+      'Access-Control-Allow-Headers': 'Content-Type, Authorization',
+      'X-Content-Type-Options': 'nosniff',
+      'X-Frame-Options': 'DENY'
     }
   });
 }

@@ -99,6 +99,15 @@ export default function ProfilePage() {
   const [prefEdu, setPrefEdu] = useState('Bachelors or Master’s');
   const [prefCasteStrictness, setPrefCasteStrictness] = useState('Open to Compatible Families');
 
+  // Quick Edit Details State
+  const [isEditDetailsOpen, setIsEditDetailsOpen] = useState(false);
+  const [editName, setEditName] = useState('');
+  const [editCity, setEditCity] = useState('');
+  const [editProfession, setEditProfession] = useState('');
+  const [editEducation, setEditEducation] = useState('');
+  const [editBio, setEditBio] = useState('');
+  const [profileSavedToast, setProfileSavedToast] = useState(false);
+
   useEffect(() => {
     const storedName = localStorage.getItem('wasl_user_name');
     const storedPhoto = localStorage.getItem('wasl_user_photo');
@@ -187,7 +196,79 @@ export default function ProfilePage() {
     if (storedCity) setUserCity(storedCity);
     if (storedCaste) setUserCaste(storedCaste);
     if (storedSect) setUserSect(storedSect);
+
+    setEditName(storedName || '');
+    setEditCity(storedCity || '');
+    setEditProfession(storedProfession || '');
+    setEditEducation(storedEducation || '');
+    setEditBio(storedBio || '');
   }, []);
+
+  const handleSaveDetails = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (editName.trim()) {
+      localStorage.setItem('wasl_user_name', editName.trim());
+      setDisplayName(editName.trim());
+      const parts = editName.trim().split(' ');
+      if (parts.length >= 2) {
+        setInitials(`${parts[0][0]}${parts[parts.length - 1][0]}`.toUpperCase());
+      } else if (parts[0]) {
+        setInitials(parts[0].slice(0, 2).toUpperCase());
+      }
+    }
+    if (editCity.trim()) {
+      localStorage.setItem('wasl_user_city', editCity.trim());
+      setUserCity(editCity.trim());
+    }
+    if (editProfession.trim()) {
+      localStorage.setItem('wasl_user_profession', editProfession.trim());
+      setUserProfession(editProfession.trim());
+    }
+    if (editEducation.trim()) {
+      localStorage.setItem('wasl_user_education', editEducation.trim());
+      setUserEducation(editEducation.trim());
+    }
+    if (editBio.trim()) {
+      localStorage.setItem('wasl_user_bio', editBio.trim());
+      setUserBio(editBio.trim());
+    }
+
+    try {
+      const email = localStorage.getItem('wasl_user_email');
+      const phone = localStorage.getItem('wasl_user_phone');
+      const stored = localStorage.getItem('wasl_registered_candidates');
+      if (stored) {
+        let list = JSON.parse(stored);
+        if (Array.isArray(list)) {
+          list = list.map((c: any) => {
+            if ((email && c.email === email) || (phone && c.phone === phone)) {
+              return {
+                ...c,
+                name: editName.trim() || c.name,
+                city: editCity.trim() || c.city,
+                profession: editProfession.trim() || c.profession,
+                education: editEducation.trim() || c.education,
+                aboutMe: editBio.trim() || c.aboutMe
+              };
+            }
+            return c;
+          });
+          localStorage.setItem('wasl_registered_candidates', JSON.stringify(list));
+          if (typeof BroadcastChannel !== 'undefined') {
+            const channel = new BroadcastChannel('wasl_sync_channel');
+            channel.postMessage({ type: 'PROFILE_UPDATED' });
+            channel.close();
+          }
+        }
+      }
+    } catch (err) {
+      console.error('Failed to update candidate cache:', err);
+    }
+
+    setIsEditDetailsOpen(false);
+    setProfileSavedToast(true);
+    setTimeout(() => setProfileSavedToast(false), 4000);
+  };
 
   const handleOpenFilePicker = () => {
     fileInputRef.current?.click();
@@ -441,14 +522,25 @@ export default function ProfilePage() {
           </div>
         </div>
 
-        {/* Edit Profile Button */}
-        <Link
-          href="/onboarding"
-          className="px-6 py-3 rounded-2xl bg-emerald-800 text-white hover:bg-emerald-900 transition flex items-center gap-2 text-xs font-bold shadow-md shrink-0"
-        >
-          <Edit3 className="w-4 h-4" />
-          Edit Profile
-        </Link>
+        {/* Edit Profile Action Buttons */}
+        <div className="flex items-center gap-2.5 shrink-0">
+          <button
+            type="button"
+            onClick={() => setIsEditDetailsOpen(true)}
+            className="px-5 py-3 rounded-2xl bg-emerald-800 text-white hover:bg-emerald-900 transition flex items-center gap-2 text-xs font-bold shadow-md cursor-pointer"
+          >
+            <Edit3 className="w-4 h-4" />
+            Edit Profile
+          </button>
+          <Link
+            href="/onboarding"
+            className="px-4 py-3 rounded-2xl bg-slate-100 text-slate-700 hover:bg-slate-200 transition flex items-center gap-1.5 text-xs font-semibold"
+            title="Complete 5-step onboarding wizard"
+          >
+            <Sliders className="w-4 h-4" />
+            Wizard
+          </Link>
+        </div>
       </div>
 
       {/* Profile Details Sections */}
@@ -870,6 +962,122 @@ export default function ProfilePage() {
               </div>
             </div>
           </div>
+        </div>
+      )}
+
+      {/* Quick Edit Profile Details Modal */}
+      {isEditDetailsOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-in fade-in duration-200">
+          <div className="relative w-full max-w-lg bg-white rounded-3xl shadow-2xl border border-slate-200 overflow-hidden">
+            <div className="flex items-center justify-between px-6 py-4 border-b border-slate-100 bg-slate-50">
+              <div className="flex items-center gap-2">
+                <div className="w-8 h-8 rounded-xl bg-emerald-800 text-white flex items-center justify-center font-bold text-xs">
+                  وصل
+                </div>
+                <h3 className="text-base font-extrabold text-slate-900">Edit Profile Details</h3>
+              </div>
+              <button
+                type="button"
+                onClick={() => setIsEditDetailsOpen(false)}
+                className="w-8 h-8 rounded-full bg-slate-200 hover:bg-slate-300 text-slate-700 flex items-center justify-center transition"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+
+            <form onSubmit={handleSaveDetails} className="p-6 space-y-4 max-h-[75vh] overflow-y-auto">
+              <div>
+                <label className="block text-xs font-bold text-slate-700 mb-1">Full Name</label>
+                <input
+                  type="text"
+                  value={editName}
+                  onChange={(e) => setEditName(e.target.value)}
+                  placeholder="e.g. Fatima Zahra or Ahmed Khan"
+                  className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 text-xs focus:outline-none focus:border-emerald-600 focus:ring-1 focus:ring-emerald-600 transition"
+                  required
+                />
+              </div>
+
+              <div>
+                <label className="block text-xs font-bold text-slate-700 mb-1">City / Location</label>
+                <input
+                  type="text"
+                  value={editCity}
+                  onChange={(e) => setEditCity(e.target.value)}
+                  placeholder="e.g. Lahore (DHA Phase 5)"
+                  className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 text-xs focus:outline-none focus:border-emerald-600 focus:ring-1 focus:ring-emerald-600 transition"
+                  required
+                />
+              </div>
+
+              <div>
+                <label className="block text-xs font-bold text-slate-700 mb-1">Profession / Role</label>
+                <input
+                  type="text"
+                  value={editProfession}
+                  onChange={(e) => setEditProfession(e.target.value)}
+                  placeholder="e.g. Software Architect or Marketing Lead"
+                  className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 text-xs focus:outline-none focus:border-emerald-600 focus:ring-1 focus:ring-emerald-600 transition"
+                />
+              </div>
+
+              <div>
+                <label className="block text-xs font-bold text-slate-700 mb-1">Education Degree & Institution</label>
+                <input
+                  type="text"
+                  value={editEducation}
+                  onChange={(e) => setEditEducation(e.target.value)}
+                  placeholder="e.g. MBA from LUMS or MBBS"
+                  className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 text-xs focus:outline-none focus:border-emerald-600 focus:ring-1 focus:ring-emerald-600 transition"
+                />
+              </div>
+
+              <div>
+                <label className="block text-xs font-bold text-slate-700 mb-1">About Me / Bio</label>
+                <textarea
+                  value={editBio}
+                  onChange={(e) => setEditBio(e.target.value)}
+                  rows={3}
+                  placeholder="Share a brief overview of your background, values, and what you are looking for in a partner..."
+                  className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 text-xs focus:outline-none focus:border-emerald-600 focus:ring-1 focus:ring-emerald-600 transition"
+                />
+              </div>
+
+              <div className="pt-2 flex items-center justify-between">
+                <Link
+                  href="/onboarding"
+                  onClick={() => setIsEditDetailsOpen(false)}
+                  className="text-xs text-emerald-800 font-semibold hover:underline flex items-center gap-1"
+                >
+                  <Sliders className="w-3.5 h-3.5" /> Full 5-Step Wizard
+                </Link>
+
+                <div className="flex items-center gap-2">
+                  <button
+                    type="button"
+                    onClick={() => setIsEditDetailsOpen(false)}
+                    className="px-4 py-2 rounded-xl border border-slate-200 text-xs font-semibold text-slate-600 hover:bg-slate-100 transition"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    type="submit"
+                    className="px-5 py-2 rounded-xl bg-emerald-800 text-white text-xs font-bold hover:bg-emerald-900 transition shadow-sm"
+                  >
+                    Save Changes
+                  </button>
+                </div>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* Toast Notification */}
+      {profileSavedToast && (
+        <div className="fixed bottom-6 right-6 z-50 bg-emerald-900 text-white px-5 py-3 rounded-2xl shadow-xl border border-emerald-700 flex items-center gap-2.5 text-xs font-bold animate-in slide-in-from-bottom-5">
+          <Check className="w-4 h-4 text-emerald-300" />
+          <span>Profile details updated successfully!</span>
         </div>
       )}
     </div>

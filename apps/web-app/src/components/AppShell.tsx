@@ -1,14 +1,16 @@
 'use client';
 
-import React from 'react';
+import React, { useEffect } from 'react';
 import Link from 'next/link';
-import { usePathname } from 'next/navigation';
+import { usePathname, useRouter } from 'next/navigation';
 import { Heart, Users, MessageSquare, Compass, User, LogOut } from 'lucide-react';
 import TopNavbar from './TopNavbar';
 import UserNavProfile from './UserNavProfile';
+import { isWaslAuthenticated, clearWaslSession } from '../utils/session';
 
 export default function AppShell({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
+  const router = useRouter();
 
   // Hide sidebar and top navbar on authentication and onboarding wizard flows
   const isAuthPage =
@@ -16,6 +18,20 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
     pathname === '/onboarding' ||
     pathname?.startsWith('/login') ||
     pathname?.startsWith('/onboarding');
+
+  useEffect(() => {
+    // Client-side authentication guard for protected workspace routes
+    if (!isAuthPage) {
+      if (!isWaslAuthenticated()) {
+        router.push('/login');
+      }
+    }
+  }, [pathname, isAuthPage, router]);
+
+  const handleSignOut = () => {
+    clearWaslSession();
+    router.push('/login');
+  };
 
   if (isAuthPage) {
     return (
@@ -64,6 +80,17 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
               Proposals & Matches
             </Link>
             <Link
+              href="/family"
+              className={`flex items-center gap-3 px-3.5 py-2.5 rounded-xl transition ${
+                pathname === '/family'
+                  ? 'bg-emerald-50 text-emerald-900 font-semibold'
+                  : 'text-slate-600 hover:bg-slate-100 hover:text-slate-900'
+              }`}
+            >
+              <Users className="w-5 h-5 text-emerald-700" />
+              Family & Guardians
+            </Link>
+            <Link
               href="/chat"
               className={`flex items-center gap-3 px-3.5 py-2.5 rounded-xl transition ${
                 pathname?.startsWith('/chat')
@@ -90,12 +117,12 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
 
         <div className="space-y-4 pt-6 border-t border-slate-100">
           <UserNavProfile layoutVariant="SIDEBAR" />
-          <Link
-            href="/login"
-            className="flex items-center gap-2 px-3 py-2 text-xs font-semibold text-slate-500 hover:text-red-600 transition"
+          <button
+            onClick={handleSignOut}
+            className="w-full flex items-center gap-2 px-3 py-2 text-xs font-semibold text-slate-500 hover:text-red-600 transition text-left"
           >
             <LogOut className="w-4 h-4" /> Sign Out
-          </Link>
+          </button>
         </div>
       </aside>
 

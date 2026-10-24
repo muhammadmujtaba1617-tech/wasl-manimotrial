@@ -8,7 +8,12 @@ export interface CandidateMatchState {
   updatedAt?: string;
 }
 
-const DEFAULT_MATCH_STATES: Record<string, MatchStatus> = {};
+const DEFAULT_MATCH_STATES: Record<string, MatchStatus> = {
+  'cand-female-1': 'MUTUAL_MATCH',
+  'cand-female-2': 'RECEIVED_PENDING',
+  'cand-female-4': 'RECEIVED_PENDING',
+  'cand-male-1': 'SENT_PENDING'
+};
 
 const STORAGE_KEY = 'wasl_match_states_v1';
 

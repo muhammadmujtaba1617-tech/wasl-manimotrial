@@ -93,12 +93,12 @@ export default function CandidateProfileModal({
   onReportOrBlock
 }: CandidateProfileModalProps) {
   const [activePhotoIdx, setActivePhotoIdx] = useState<number>(0);
-  const [isPhotoBlurred, setIsPhotoBlurred] = useState<boolean>(true);
+  const [isPhotoBlurred, setIsPhotoBlurred] = useState<boolean>(Boolean(candidate?.photoBlurred));
   const [watermarkText, setWatermarkText] = useState<string>('WASL-PROTECTED-VIEWER');
 
   useEffect(() => {
     if (candidate) {
-      setIsPhotoBlurred(candidate.photoBlurred);
+      setIsPhotoBlurred(Boolean(candidate.photoBlurred));
       setActivePhotoIdx(0);
     }
   }, [candidate]);

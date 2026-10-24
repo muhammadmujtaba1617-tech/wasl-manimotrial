@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect } from 'react';
 import Link from 'next/link';
-import { usePathname } from 'next/navigation';
+import { usePathname, useRouter } from 'next/navigation';
 import {
   Compass,
   Heart,
@@ -18,15 +18,30 @@ import {
 } from 'lucide-react';
 import NotificationHub from './NotificationHub';
 import UserNavProfile from './UserNavProfile';
+import { clearWaslSession } from '../utils/session';
 
 export default function TopNavbar() {
   const pathname = usePathname();
+  const router = useRouter();
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  const [searchQuery, setSearchQuery] = useState('');
   const [mounted, setMounted] = useState(false);
 
   useEffect(() => {
     setMounted(true);
   }, []);
+
+  const handleSearchSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (searchQuery.trim()) {
+      router.push(`/dashboard?q=${encodeURIComponent(searchQuery.trim())}`);
+    }
+  };
+
+  const handleSignOut = () => {
+    clearWaslSession();
+    router.push('/login');
+  };
 
   // Hide top navbar on onboarding or login pages
   if (pathname === '/onboarding' || pathname === '/login') {
@@ -45,18 +60,20 @@ export default function TopNavbar() {
         </Link>
 
         {/* Global Search Bar with Hydration Suppression */}
-        <div className="hidden sm:flex items-center rounded-xl border border-slate-200 bg-slate-50 px-3 py-1.5 text-xs text-slate-600 focus-within:border-emerald-600 focus-within:bg-white focus-within:ring-1 focus-within:ring-emerald-600 transition">
+        <form onSubmit={handleSearchSubmit} className="hidden sm:flex items-center rounded-xl border border-slate-200 bg-slate-50 px-3 py-1.5 text-xs text-slate-600 focus-within:border-emerald-600 focus-within:bg-white focus-within:ring-1 focus-within:ring-emerald-600 transition">
           <Search className="mr-2 h-4 w-4 text-slate-400" />
           <input
             type="text"
             suppressHydrationWarning
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
             placeholder="Search by city, education, or profession..."
             className="w-48 md:w-64 bg-transparent text-slate-800 placeholder-slate-400 focus:outline-none"
           />
           <span className="ml-2 rounded border border-slate-200 bg-white px-1.5 py-0.5 text-[10px] font-mono text-slate-400">
-            ⌘K
+            ↵
           </span>
-        </div>
+        </form>
       </div>
 
       {/* Right Actions: Notification Hub & User Status */}
@@ -98,7 +115,14 @@ export default function TopNavbar() {
               <Heart className="h-4 w-4 text-rose-500" /> Proposals & Matches
             </Link>
             <Link
-              href="/chat/thread-demo"
+              href="/family"
+              onClick={() => setMobileMenuOpen(false)}
+              className="flex items-center gap-3 rounded-xl px-3.5 py-2.5 text-slate-700 hover:bg-slate-100"
+            >
+              <Users className="h-4 w-4 text-emerald-700" /> Family & Guardians
+            </Link>
+            <Link
+              href="/chat"
               onClick={() => setMobileMenuOpen(false)}
               className="flex items-center gap-3 rounded-xl px-3.5 py-2.5 text-slate-700 hover:bg-slate-100"
             >
@@ -111,13 +135,15 @@ export default function TopNavbar() {
             >
               <User className="h-4 w-4 text-slate-500" /> My Profile & Badges
             </Link>
-            <Link
-              href="/login"
-              onClick={() => setMobileMenuOpen(false)}
-              className="flex items-center gap-3 rounded-xl px-3.5 py-2.5 text-rose-600 hover:bg-rose-50"
+            <button
+              onClick={() => {
+                setMobileMenuOpen(false);
+                handleSignOut();
+              }}
+              className="w-full flex items-center gap-3 rounded-xl px-3.5 py-2.5 text-rose-600 hover:bg-rose-50 text-left font-semibold"
             >
               <LogOut className="h-4 w-4" /> Sign Out
-            </Link>
+            </button>
           </nav>
         </div>
       )}

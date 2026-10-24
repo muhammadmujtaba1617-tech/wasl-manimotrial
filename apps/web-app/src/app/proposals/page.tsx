@@ -115,13 +115,50 @@ export default function ProposalsPage() {
   const router = useRouter();
   const [activeTab, setActiveTab] = useState<'mutual' | 'received' | 'sent'>('mutual');
   const [matchStates, setMatchStates] = useState<Record<string, MatchStatus>>(getMatchStates);
-  const [proposals, setProposals] = useState<ProposalCardData[]>([]);
+  const [proposals, setProposals] = useState<ProposalCardData[]>(ALL_PROPOSALS);
   const [toastMessage, setToastMessage] = useState<string>('');
 
   useEffect(() => {
     const sync = () => {
-      setMatchStates(getMatchStates());
+      const currentStates = getMatchStates();
+      setMatchStates(currentStates);
+      
+      // Also sync dynamically if custom registered users have pending sent proposals
+      try {
+        const storedCustomUsers = localStorage.getItem('wasl_registered_candidates');
+        if (storedCustomUsers) {
+          const customCands = JSON.parse(storedCustomUsers);
+          if (Array.isArray(customCands)) {
+            const dynamicSent: ProposalCardData[] = customCands
+              .filter(c => currentStates[c.id] === 'SENT_PENDING' || currentStates[c.id] === 'MUTUAL_MATCH')
+              .map(c => ({
+                id: `prop-dyn-${c.id}`,
+                candidateId: c.id,
+                candidateName: c.name || 'Candidate',
+                avatarInitials: (c.name || 'W').substring(0, 2).toUpperCase(),
+                photoUrl: c.photoUrl,
+                age: c.age || 26,
+                city: c.city || 'Pakistan',
+                profession: c.profession || 'Professional',
+                education: c.education || 'Graduate',
+                matchScore: c.matchScore || 88,
+                stageName: currentStates[c.id] === 'MUTUAL_MATCH' ? 'Stage 5: Supervised Chat Active' : 'Stage 2: Proposal Sent',
+                stepNumber: currentStates[c.id] === 'MUTUAL_MATCH' ? 5 : 2,
+                lastAction: currentStates[c.id] === 'MUTUAL_MATCH' ? 'Proposal accepted! Chat unlocked.' : 'You expressed interest. Pending review.',
+                category: currentStates[c.id] === 'MUTUAL_MATCH' ? 'mutual' : 'sent'
+              }));
+
+            setProposals(prev => {
+              const staticFiltered = prev.filter(p => !p.id.startsWith('prop-dyn-'));
+              return [...staticFiltered, ...dynamicSent];
+            });
+          }
+        }
+      } catch (err) {
+        console.error('Failed to sync dynamic proposals:', err);
+      }
     };
+
     sync();
     window.addEventListener('wasl_match_state_updated', sync);
     return () => window.removeEventListener('wasl_match_state_updated', sync);
@@ -153,15 +190,18 @@ export default function ProposalsPage() {
   };
 
   const filteredProposals = proposals.filter(p => {
-    const status = matchStates[p.candidateId];
+    const status = matchStates[p.candidateId] ?? (
+      p.category === 'mutual' ? 'MUTUAL_MATCH' :
+      p.category === 'received' ? 'RECEIVED_PENDING' : 'SENT_PENDING'
+    );
     if (activeTab === 'mutual') {
       return status === 'MUTUAL_MATCH';
     }
     if (activeTab === 'received') {
-      return status === 'RECEIVED_PENDING' || (p.category === 'received' && status !== 'MUTUAL_MATCH' && status !== 'NOT_CONNECTED');
+      return status === 'RECEIVED_PENDING';
     }
     if (activeTab === 'sent') {
-      return status === 'SENT_PENDING' || (p.category === 'sent' && status !== 'MUTUAL_MATCH');
+      return status === 'SENT_PENDING';
     }
     return false;
   });
