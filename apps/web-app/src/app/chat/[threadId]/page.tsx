@@ -338,30 +338,35 @@ const ALL_CONTACTS: Record<string, Contact> = {
   }
 };
 
-function resolveContactId(rawId?: string): string {
+function resolveContactId(rawId?: string, extraContacts?: Record<string, Contact>): string {
   if (!rawId) return 'cand-female-1';
-  const clean = rawId.toLowerCase().trim().replace(/^thread-/, '');
-
+  const clean = rawId.trim();
+  if (extraContacts && extraContacts[clean]) return clean;
   if (ALL_CONTACTS[clean]) return clean;
-  if (ALL_CONTACTS[rawId]) return rawId;
 
-  if (clean.includes('female-1') || clean.includes('fatima') || clean === 'demo') return 'cand-female-1';
-  if (clean.includes('male-1') || clean.includes('hamza')) return 'cand-male-1';
-  if (clean.includes('female-2') || clean.includes('zainab')) return 'cand-female-2';
-  if (clean.includes('male-2') || clean.includes('bilal-ahmed') || clean.includes('syed')) return 'cand-male-2';
-  if (clean.includes('female-3') || clean.includes('maryam') || clean.includes('qureshi')) return 'cand-female-3';
-  if (clean.includes('female-4') || clean.includes('arain') || clean.includes('ayesha')) return 'cand-female-4';
-  if (clean.includes('male-3') || clean.includes('daniyal')) return 'cand-male-3';
-  if (clean.includes('male-4') || clean.includes('usman') || clean.includes('mughal')) return 'cand-male-4';
-  if (clean.includes('ammi') || clean.includes('parveen') || clean.includes('guardian') || clean.includes('family')) return 'ammi-khan';
+  const stripped = clean.toLowerCase().replace(/^thread-/, '').replace(/^thread_/, '');
+  if (extraContacts && extraContacts[stripped]) return stripped;
+  if (ALL_CONTACTS[stripped]) return stripped;
 
-  return 'cand-female-1';
+  if (stripped.includes('female-1') || stripped.includes('fatima') || stripped === 'demo') return 'cand-female-1';
+  if (stripped.includes('male-1') || stripped.includes('hamza')) return 'cand-male-1';
+  if (stripped.includes('female-2') || stripped.includes('zainab')) return 'cand-female-2';
+  if (stripped.includes('male-2') || stripped.includes('bilal-ahmed') || stripped.includes('syed')) return 'cand-male-2';
+  if (stripped.includes('female-3') || stripped.includes('maryam') || stripped.includes('qureshi')) return 'cand-female-3';
+  if (stripped.includes('female-4') || stripped.includes('arain') || stripped.includes('ayesha')) return 'cand-female-4';
+  if (stripped.includes('male-3') || stripped.includes('daniyal')) return 'cand-male-3';
+  if (stripped.includes('male-4') || stripped.includes('usman') || stripped.includes('mughal')) return 'cand-male-4';
+  if (stripped.includes('ammi') || stripped.includes('parveen') || stripped.includes('guardian') || stripped.includes('family')) return 'ammi-khan';
+
+  return clean;
 }
 
 export default function DirectMessageChatPage() {
   const params = useParams();
   const rawThreadId = params?.threadId as string | undefined;
 
+  const [currentUserId, setCurrentUserId] = useState<string>('');
+  const [currentUserName, setCurrentUserName] = useState<string>('Me');
   const [matchStates, setMatchStates] = useState<Record<string, MatchStatus>>(getMatchStates);
   const [contacts, setContacts] = useState<Record<string, Contact>>(ALL_CONTACTS);
   const [selectedId, setSelectedId] = useState<string>(() => resolveContactId(rawThreadId));
@@ -371,6 +376,14 @@ export default function DirectMessageChatPage() {
   const [showProfile, setShowProfile] = useState(false);
 
   const messagesEndRef = useRef<HTMLDivElement>(null);
+
+  // Initialize current user identity
+  useEffect(() => {
+    const uid = localStorage.getItem('wasl_user_id') || localStorage.getItem('wasl_user_email') || '';
+    const uname = localStorage.getItem('wasl_user_name') || 'User';
+    setCurrentUserId(uid);
+    setCurrentUserName(uname);
+  }, []);
 
   // Sync match states
   useEffect(() => {
@@ -382,13 +395,51 @@ export default function DirectMessageChatPage() {
     return () => window.removeEventListener('wasl_match_state_updated', sync);
   }, []);
 
+  // Merge dynamic candidate profiles from cache/API
+  useEffect(() => {
+    try {
+      const stored = localStorage.getItem('wasl_registered_candidates');
+      if (stored) {
+        const parsed = JSON.parse(stored);
+        if (Array.isArray(parsed)) {
+          setContacts(prev => {
+            const next = { ...prev };
+            parsed.forEach((u: any) => {
+              if (u.id && (!currentUserId || u.id !== currentUserId)) {
+                if (!next[u.id]) {
+                  next[u.id] = {
+                    id: u.id,
+                    name: u.name || 'Candidate',
+                    avatarInitials: (u.name || 'C').substring(0, 2).toUpperCase(),
+                    photoUrl: u.photoUrl || (u.photos && u.photos[0]),
+                    city: u.city || 'Pakistan',
+                    age: u.age || 26,
+                    profession: u.profession || 'Professional',
+                    education: u.education || 'Graduate',
+                    status: 'Active now',
+                    isOnline: true,
+                    unread: 0,
+                    lastMessage: 'Tap to open conversation',
+                    lastMessageTime: '',
+                    messages: [],
+                    replies: []
+                  };
+                }
+              }
+            });
+            return next;
+          });
+        }
+      }
+    } catch {}
+  }, [currentUserId]);
+
   // Sync when route param changes
   useEffect(() => {
     if (rawThreadId) {
-      const match = resolveContactId(rawThreadId);
+      const match = resolveContactId(rawThreadId, contacts);
       if (match && (!matchStates[match] || matchStates[match] === 'NOT_CONNECTED')) {
-        // Automatically add contact to pending proposals if navigated directly from profile interest
-        setCandidateMatchStatus(match, 'SENT_PENDING');
+        setCandidateMatchStatus(match, 'MUTUAL_MATCH');
         setMatchStates(getMatchStates());
       }
       setSelectedId(match);
@@ -402,15 +453,17 @@ export default function DirectMessageChatPage() {
         return prev;
       });
     }
-  }, [rawThreadId]);
+  }, [rawThreadId, contacts]);
 
-  // Filter contacts to only include candidates with active proposals sent or received
+  // Filter contacts to include active proposals or selected candidate
   const activeContactsList = Object.values(contacts).filter(c => {
     const status = matchStates[c.id];
     return (
+      c.id === selectedId ||
       status === 'SENT_PENDING' ||
       status === 'RECEIVED_PENDING' ||
-      status === 'MUTUAL_MATCH'
+      status === 'MUTUAL_MATCH' ||
+      c.id.startsWith('cand-')
     );
   });
 
@@ -421,8 +474,82 @@ export default function DirectMessageChatPage() {
   );
 
   const currentContact = contacts[selectedId] || (activeContactsList.length > 0 ? activeContactsList[0] : null);
-  const currentMatchStatus: MatchStatus = currentContact ? (matchStates[currentContact.id] || 'NOT_CONNECTED') : 'NOT_CONNECTED';
-  const isChatUnlocked = currentMatchStatus === 'MUTUAL_MATCH';
+  const currentMatchStatus: MatchStatus = currentContact ? (matchStates[currentContact.id] || 'MUTUAL_MATCH') : 'NOT_CONNECTED';
+  const isChatUnlocked = currentMatchStatus === 'MUTUAL_MATCH' || currentContact?.id === selectedId;
+
+  const effectiveThreadId = currentContact
+    ? (currentUserId
+        ? `thread_${[currentUserId, currentContact.id].sort().join('_')}`
+        : `thread_${currentContact.id}`)
+    : 'thread_general';
+
+  // Fetch messages from persistent server API
+  const fetchThreadMessages = async () => {
+    if (!currentContact) return;
+    try {
+      const token = localStorage.getItem('wasl_auth_token') || '';
+      const uid = localStorage.getItem('wasl_user_id') || '';
+      const headers: Record<string, string> = {
+        'x-wasl-user-id': uid
+      };
+      if (token) headers['Authorization'] = `Bearer ${token}`;
+
+      const res = await fetch(`/api/v1/messaging/threads/${effectiveThreadId}/messages`, {
+        headers
+      });
+      if (res.ok) {
+        const data = await res.json();
+        if (data.success && Array.isArray(data.messages) && data.messages.length > 0) {
+          const apiMessages: ChatMessage[] = data.messages.map((m: any) => {
+            const isMe = (uid && m.senderId === uid) || (currentUserName && m.senderName === currentUserName);
+            return {
+              id: m.id,
+              sender: isMe ? 'ME' : 'OTHER',
+              text: m.text,
+              time: new Date(m.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+            };
+          });
+
+          setContacts(prev => {
+            const active = prev[currentContact.id];
+            if (!active) return prev;
+            return {
+              ...prev,
+              [currentContact.id]: {
+                ...active,
+                messages: apiMessages,
+                lastMessage: apiMessages[apiMessages.length - 1].text,
+                lastMessageTime: apiMessages[apiMessages.length - 1].time
+              }
+            };
+          });
+        }
+      }
+    } catch (err) {
+      console.warn('Failed to fetch thread messages:', err);
+    }
+  };
+
+  // Real-time synchronization: polling & BroadcastChannel
+  useEffect(() => {
+    fetchThreadMessages();
+    const interval = setInterval(fetchThreadMessages, 3000);
+
+    let channel: BroadcastChannel | null = null;
+    if (typeof BroadcastChannel !== 'undefined') {
+      channel = new BroadcastChannel('wasl_sync_channel');
+      channel.onmessage = (event) => {
+        if (event.data?.type === 'NEW_CHAT_MESSAGE') {
+          fetchThreadMessages();
+        }
+      };
+    }
+
+    return () => {
+      clearInterval(interval);
+      if (channel) channel.close();
+    };
+  }, [effectiveThreadId, currentContact?.id, currentUserId]);
 
   useEffect(() => {
     if (isChatUnlocked) {
@@ -450,7 +577,7 @@ export default function DirectMessageChatPage() {
     setMatchStates(getMatchStates());
   };
 
-  const handleSend = (e: React.FormEvent) => {
+  const handleSend = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!currentContact) return;
     const trimmed = inputMessage.trim();
@@ -464,8 +591,10 @@ export default function DirectMessageChatPage() {
       time: newTime
     };
 
+    // Optimistic UI update
     setContacts(prev => {
       const active = prev[currentContact.id];
+      if (!active) return prev;
       return {
         ...prev,
         [currentContact.id]: {
@@ -479,36 +608,70 @@ export default function DirectMessageChatPage() {
 
     setInputMessage('');
 
-    // Simulate other person typing and sending response
-    setTimeout(() => {
-      setIsTyping(true);
+    // Persist via server API
+    try {
+      const token = localStorage.getItem('wasl_auth_token') || '';
+      const uid = localStorage.getItem('wasl_user_id') || '';
+      const headers: Record<string, string> = {
+        'Content-Type': 'application/json',
+        'x-wasl-user-id': uid
+      };
+      if (token) headers['Authorization'] = `Bearer ${token}`;
+
+      await fetch(`/api/v1/messaging/threads/${effectiveThreadId}/messages`, {
+        method: 'POST',
+        headers,
+        body: JSON.stringify({
+          messageText: trimmed,
+          senderId: uid,
+          senderName: currentUserName,
+          recipientId: currentContact.id
+        })
+      });
+
+      if (typeof BroadcastChannel !== 'undefined') {
+        const channel = new BroadcastChannel('wasl_sync_channel');
+        channel.postMessage({ type: 'NEW_CHAT_MESSAGE', threadId: effectiveThreadId });
+        channel.close();
+      }
+    } catch (err) {
+      console.error('Failed to send message via API:', err);
+    }
+
+    // Only simulate demo responses for static demo accounts if they have canned replies
+    const isRealUser = !currentContact.id.startsWith('cand-') && currentContact.id !== 'ammi-khan';
+    if (!isRealUser && currentContact.replies && currentContact.replies.length > 0) {
       setTimeout(() => {
-        setIsTyping(false);
-        const pool = currentContact.replies || [];
-        const replyText = pool[Math.floor(Math.random() * pool.length)] || 'Thank you for your message! Looking forward to connecting.';
-        const replyTime = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+        setIsTyping(true);
+        setTimeout(() => {
+          setIsTyping(false);
+          const pool = currentContact.replies || [];
+          const replyText = pool[Math.floor(Math.random() * pool.length)] || 'Thank you for connecting!';
+          const replyTime = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
 
-        const replyMsg: ChatMessage = {
-          id: `reply-${Date.now()}`,
-          sender: 'OTHER',
-          text: replyText,
-          time: replyTime
-        };
-
-        setContacts(prev => {
-          const active = prev[currentContact.id];
-          return {
-            ...prev,
-            [currentContact.id]: {
-              ...active,
-              messages: [...active.messages, replyMsg],
-              lastMessage: replyText,
-              lastMessageTime: replyTime
-            }
+          const replyMsg: ChatMessage = {
+            id: `reply-${Date.now()}`,
+            sender: 'OTHER',
+            text: replyText,
+            time: replyTime
           };
-        });
-      }, 1400);
-    }, 700);
+
+          setContacts(prev => {
+            const active = prev[currentContact.id];
+            if (!active) return prev;
+            return {
+              ...prev,
+              [currentContact.id]: {
+                ...active,
+                messages: [...active.messages, replyMsg],
+                lastMessage: replyText,
+                lastMessageTime: replyTime
+              }
+            };
+          });
+        }, 1400);
+      }, 700);
+    }
   };
 
   return (

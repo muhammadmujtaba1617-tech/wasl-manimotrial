@@ -168,6 +168,79 @@ const INITIAL_RECORDS: PersistentUserRecord[] = [
 declare global {
   var __WASL_STORE__: Map<string, PersistentUserRecord> | undefined;
   var __WASL_OTP__: Map<string, { code: string; expiresAt: number }> | undefined;
+  var __WASL_MESSAGES__: Map<string, PersistentChatMessage[]> | undefined;
+}
+
+interface PersistentChatMessage {
+  id: string;
+  threadId: string;
+  senderId: string;
+  senderName: string;
+  recipientId: string;
+  text: string;
+  timestamp: string;
+  isFlaggedByAutomod?: boolean;
+  automodReason?: string;
+}
+
+function getMessagesStore(): Map<string, PersistentChatMessage[]> {
+  if (!globalThis.__WASL_MESSAGES__) {
+    const store = new Map<string, PersistentChatMessage[]>();
+    try {
+      const tmpPath = path.join('/tmp', 'messages_state.json');
+      if (fs.existsSync(tmpPath)) {
+        const data = JSON.parse(fs.readFileSync(tmpPath, 'utf-8'));
+        if (data && typeof data === 'object') {
+          Object.entries(data).forEach(([threadId, msgs]: [string, any]) => {
+            if (Array.isArray(msgs)) store.set(threadId, msgs);
+          });
+        }
+      }
+    } catch {}
+    globalThis.__WASL_MESSAGES__ = store;
+  }
+  return globalThis.__WASL_MESSAGES__;
+}
+
+async function persistMessages(threadId: string, messages: PersistentChatMessage[]): Promise<void> {
+  const store = getMessagesStore();
+  store.set(threadId, messages);
+
+  try {
+    const obj: Record<string, PersistentChatMessage[]> = {};
+    store.forEach((val, key) => {
+      obj[key] = val;
+    });
+    fs.writeFileSync(path.join('/tmp', 'messages_state.json'), JSON.stringify(obj, null, 2), 'utf-8');
+  } catch {}
+
+  const url = process.env.UPSTASH_REDIS_REST_URL || process.env.KV_REST_API_URL;
+  const token = process.env.UPSTASH_REDIS_REST_TOKEN || process.env.KV_REST_API_TOKEN;
+  if (url && token) {
+    try {
+      await fetch(`${url}/set/wasl_messages_${threadId}`, {
+        method: 'POST',
+        headers: { Authorization: `Bearer ${token}` },
+        body: JSON.stringify(messages)
+      });
+    } catch {}
+  }
+}
+
+const PII_PATTERNS = [
+  { regex: /(?:\+?92|0)?3\d{2}[-.\s]?\d{7}/g, reason: 'PAK_PHONE_NUMBER' },
+  { regex: /(?:whatsapp|wa\.me|insta|snapchat|telegram)/gi, reason: 'EXTERNAL_SOCIAL_HANDLE' },
+  { regex: /(?:https?:\/\/|www\.)[^\s]+/gi, reason: 'EXTERNAL_WEB_LINK' },
+  { regex: /(?:jazzcash|easypaisa|bank|iban|account\s+no)/gi, reason: 'PAYMENT_CONTACT_KEYWORD' }
+];
+
+function scanAutomod(text: string): { flagged: boolean; reason?: string } {
+  for (const item of PII_PATTERNS) {
+    if (item.regex.test(text)) {
+      return { flagged: true, reason: item.reason };
+    }
+  }
+  return { flagged: false };
 }
 
 function getMemoryStore(): Map<string, PersistentUserRecord> {
@@ -378,6 +451,35 @@ export async function GET(request: Request) {
     });
   }
 
+  // GET /api/v1/messaging/threads/:threadId/messages
+  const threadMatch = pathname.match(/\/messaging\/threads\/([^/]+)\/messages/);
+  if (threadMatch) {
+    const threadId = threadMatch[1];
+    const authHeader = request.headers.get('Authorization') || '';
+    const userIdHeader = request.headers.get('x-wasl-user-id') || '';
+
+    let requesterId = userIdHeader;
+    if (!requesterId && authHeader.startsWith('Bearer wasl_token_')) {
+      const parts = authHeader.replace('Bearer wasl_token_', '').split('_');
+      requesterId = parts[0];
+    }
+
+    // Authorization check: if threadId is thread_{idA}_{idB}, requester must be part of thread
+    if (threadId.startsWith('thread_')) {
+      const threadContent = threadId.replace('thread_', '');
+      if (requesterId && !threadContent.toLowerCase().includes(requesterId.toLowerCase()) && requesterId !== 'admin') {
+        return NextResponse.json(
+          { success: false, error: 'Unauthorized: You are not a participant in this conversation.' },
+          { status: 403 }
+        );
+      }
+    }
+
+    const store = getMessagesStore();
+    const msgs = store.get(threadId) || [];
+    return NextResponse.json({ success: true, threadId, messages: msgs });
+  }
+
   return NextResponse.json({ success: true, status: 'ok', timestamp: new Date().toISOString() });
 }
 
@@ -389,6 +491,60 @@ export async function POST(request: Request) {
   try {
     body = await request.json();
   } catch {}
+
+  // POST /api/v1/messaging/threads/:threadId/messages
+  const postThreadMatch = pathname.match(/\/messaging\/threads\/([^/]+)\/messages/);
+  if (postThreadMatch) {
+    const threadId = postThreadMatch[1];
+    const authHeader = request.headers.get('Authorization') || '';
+    const userIdHeader = request.headers.get('x-wasl-user-id') || '';
+
+    let requesterId = userIdHeader || body.senderId || '';
+    if (!requesterId && authHeader.startsWith('Bearer wasl_token_')) {
+      const parts = authHeader.replace('Bearer wasl_token_', '').split('_');
+      requesterId = parts[0];
+    }
+
+    // Authorization check
+    if (threadId.startsWith('thread_')) {
+      const threadContent = threadId.replace('thread_', '');
+      if (requesterId && !threadContent.toLowerCase().includes(requesterId.toLowerCase()) && requesterId !== 'admin') {
+        return NextResponse.json(
+          { success: false, error: 'Unauthorized: You cannot send messages to this conversation.' },
+          { status: 403 }
+        );
+      }
+    }
+
+    const messageText = (body.messageText || body.text || '').trim();
+    if (!messageText) {
+      return NextResponse.json({ success: false, error: 'Message cannot be empty.' }, { status: 400 });
+    }
+    if (messageText.length > 2000) {
+      return NextResponse.json({ success: false, error: 'Message exceeds 2000 character limit.' }, { status: 400 });
+    }
+
+    const automod = scanAutomod(messageText);
+
+    const store = getMessagesStore();
+    const existing = store.get(threadId) || [];
+    const newMsg: PersistentChatMessage = {
+      id: `msg-${Date.now()}-${Math.random().toString(36).substring(2, 6)}`,
+      threadId,
+      senderId: requesterId || 'user',
+      senderName: body.senderName || 'Sender',
+      recipientId: body.recipientId || '',
+      text: messageText,
+      timestamp: new Date().toISOString(),
+      isFlaggedByAutomod: automod.flagged,
+      automodReason: automod.reason
+    };
+
+    const updated = [...existing, newMsg];
+    await persistMessages(threadId, updated);
+
+    return NextResponse.json({ success: true, message: newMsg });
+  }
 
   // POST /api/v1/auth/send-otp
   if (pathname.endsWith('/auth/send-otp')) {
